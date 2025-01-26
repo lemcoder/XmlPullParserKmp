@@ -8,7 +8,6 @@ import io.github.lemcoder.XmlPullParser
  * @author [Aleksander Slominski](http://www.extreme.indiana.edu/~aslom/)
  */
 class XmlPullParserException : Exception {
-    @Deprecated("use generic getCause() method")
     protected var detail: Throwable? = null
 
     // public void setDetail(Throwable cause) { this.detail = cause; }
@@ -38,22 +37,5 @@ class XmlPullParserException : Exception {
             this.columnNumber = parser.columnNumber
         }
         this.detail = chain
-    }
-
-    /**
-     * @return the cause
-     */
-    @Deprecated("""Use the generic <code>getCause()</code> method""")
-    fun getDetail(): Throwable? {
-        return cause
-    }
-
-    /*
-     * public String getMessage() { if(detail == null) return super.getMessage(); else return super.getMessage() +
-     * "; nested exception is: \n\t" + detail.getMessage(); }
-     */
-    // NOTE: code that prints this and detail is difficult in J2ME
-    fun printStackTrace() {
-        cause?.printStackTrace() ?: println(stackTraceToString())
     }
 }

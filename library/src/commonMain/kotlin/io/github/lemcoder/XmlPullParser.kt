@@ -2,6 +2,8 @@ package io.github.lemcoder
 
 import io.github.lemcoder.exceptions.IOException
 import io.github.lemcoder.exceptions.XmlPullParserException
+import io.github.lemcoder.inputStream.InputStream
+import io.github.lemcoder.reader.Reader
 
 
 /**
@@ -204,7 +206,7 @@ interface XmlPullParser {
      * @throws XmlPullParserException parsing issue
      */
     @Throws(XmlPullParserException::class)
-    fun setInput(`in`: Reader?)
+    fun setInput(input: Reader?)
 
     /**
      * Sets the input stream the parser is going to process. This call resets the parser state and sets the event type
@@ -221,7 +223,7 @@ interface XmlPullParser {
      * @throws XmlPullParserException parsing issue
      */
     @Throws(XmlPullParserException::class)
-    fun setInput(inputStream: InputStream?, inputEncoding: String?)
+    fun setInput(inputStream: InputStream, inputEncoding: String?)
 
     /**
      * @return the input encoding if known, null otherwise. If setInput(InputStream, inputEncoding) was called with an
@@ -408,7 +410,6 @@ interface XmlPullParser {
 
     // --------------------------------------------------------------------------
     // TEXT related methods
-    @get:Throws(XmlPullParserException::class)
     val isWhitespace: Boolean
 
     /**
@@ -478,7 +479,6 @@ interface XmlPullParser {
      */
     val prefix: String?
 
-    @get:Throws(XmlPullParserException::class)
     val isEmptyElementTag: Boolean
 
     // --------------------------------------------------------------------------
@@ -589,7 +589,6 @@ interface XmlPullParser {
 
     // --------------------------------------------------------------------------
     // actual parsing methods
-    @get:Throws(XmlPullParserException::class)
     val eventType: Int
 
     /**

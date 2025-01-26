@@ -1,7 +1,5 @@
 package io.github.lemcoder
 
-import io.github.lemcoder.utils.codePointAt
-import io.github.lemcoder.utils.codePointCount
 import io.github.lemcoder.codePoints.CodePoints
 import io.github.lemcoder.codePoints.CodePoints.highSurrogate
 import io.github.lemcoder.codePoints.CodePoints.isBmpCodePoint
@@ -9,8 +7,11 @@ import io.github.lemcoder.codePoints.CodePoints.lowSurrogate
 import io.github.lemcoder.exceptions.EOFException
 import io.github.lemcoder.exceptions.IOException
 import io.github.lemcoder.exceptions.XmlPullParserException
+import io.github.lemcoder.exceptions.XmlStreamReaderException
+import io.github.lemcoder.inputStream.InputStream
 import io.github.lemcoder.reader.Reader
-import io.github.lemcoder.utils.arraycopy
+import io.github.lemcoder.reader.XmlStreamReader
+import io.github.lemcoder.utils.*
 import kotlin.math.min
 
 // TODO best handling of interning issues
@@ -67,7 +68,6 @@ class MXParser : XmlPullParser {
 
     private var reachedEnd = false
 
-    @get:Throws(XmlPullParserException::class)
     override var eventType: Int = 0
         private set
 
@@ -526,18 +526,18 @@ class MXParser : XmlPullParser {
     }
 
     @Throws(XmlPullParserException::class)
-    override fun setInput(`in`: Reader?) {
+    override fun setInput(input: Reader?) {
         reset()
-        reader = `in`
+        reader = input
     }
 
     @Throws(XmlPullParserException::class)
     override fun setInput(inputStream: InputStream, inputEncoding: String?) {
-        requireNotNull(inputStream) { "input stream can not be null" }
         val reader: Reader
         try {
             if (inputEncoding != null) {
-                reader = InputStreamReader(inputStream, inputEncoding)
+                TODO()
+                // reader = InputStreamReader(inputStream, inputEncoding)
             } else {
                 reader = XmlStreamReader(inputStream, false)
             }
@@ -546,17 +546,17 @@ class MXParser : XmlPullParser {
                 "could not create reader for encoding $inputEncoding : $une", this, une
             )
         } catch (e: XmlStreamReaderException) {
-            if ("UTF-8" == e.getBomEncoding()) {
-                throw XmlPullParserException(
-                    "UTF-8 BOM plus xml decl of " + e.getXmlEncoding() + " is incompatible", this, e
-                )
-            }
-            if (e.getBomEncoding() != null && e.getBomEncoding().startsWith("UTF-16")) {
-                throw XmlPullParserException(
-                    "UTF-16 BOM in a " + e.getXmlEncoding() + " encoded file is incompatible", this, e
-                )
-            }
-            throw XmlPullParserException("could not create reader : $e", this, e)
+//            if ("UTF-8" == e.getBomEncoding()) {
+//                throw XmlPullParserException(
+//                    "UTF-8 BOM plus xml decl of " + e.getXmlEncoding() + " is incompatible", this, e
+//                )
+//            }
+//            if (e.getBomEncoding() != null && e.getBomEncoding().startsWith("UTF-16")) {
+//                throw XmlPullParserException(
+//                    "UTF-16 BOM in a " + e.getXmlEncoding() + " encoded file is incompatible", this, e
+//                )
+//            }
+            throw XmlPullParserException("could not create reader : $e", this, e) // TODO
         } catch (e: IOException) {
             throw XmlPullParserException("could not create reader : $e", this, e)
         }
@@ -678,11 +678,10 @@ class MXParser : XmlPullParser {
             // return " at line "+tokenizerPosRow
             // +" and column "+(tokenizerPosCol-1)
             // +(fragment != null ? " seen "+printable(fragment)+"..." : "");
-            return (" " + eventType. + (if (fragment != null) " seen " + printable(fragment) + "..." else "") + " "
+            return (" " + XmlPullParser.getTypeOf(eventType) + (if (fragment != null) " seen " + printable(fragment) + "..." else "") + " "
                     + (if (location != null) location else "") + "@" + lineNumber + ":" + columnNumber)
         }
 
-    @get:Throws(XmlPullParserException::class)
     override val isWhitespace: Boolean
         get() {
             if (eventType == XmlPullParser.TEXT || eventType == XmlPullParser.CDSECT) {
@@ -924,11 +923,11 @@ class MXParser : XmlPullParser {
             || (name != null && name != name)
         ) {
             throw XmlPullParserException(
-                ("expected event " + jdk.internal.org.objectweb.asm.util.Printer.TYPES.get(type) // TODO what is it?!
+                ("expected event " + XmlPullParser.getTypeOf(type) // TODO what is it?!
                         + (if (name != null) " with name '$name'" else "")
                         + (if (namespace != null && name != null) " and" else "")
                         + (if (namespace != null) " with namespace '$namespace'" else "") + " but got"
-                        + (if (type != eventType) " " + jdk.internal.org.objectweb.asm.util.Printer.TYPES.get(eventType) else "") // TODO what is it?!
+                        + (if (type != eventType) " " + XmlPullParser.getTypeOf(eventType) else "") // TODO what is it?!
                         + (if (name != null && name != null && (name != name)) " name '$name'" else "")
                         + (if (namespace != null && name != null && name != null && (name != name) && namespace != null && (namespace != namespace))
                     " and"
@@ -1002,7 +1001,7 @@ class MXParser : XmlPullParser {
             eventType = next()
             if (eventType != XmlPullParser.END_TAG) {
                 throw XmlPullParserException(
-                    "TEXT must be immediately followed by END_TAG and not " + jdk.internal.org.objectweb.asm.util.Printer.TYPES.get(eventType), this, null
+                    "TEXT must be immediately followed by END_TAG and not " + XmlPullParser.getTypeOf(eventType), this, null
                 )
             }
             return result
@@ -1020,7 +1019,7 @@ class MXParser : XmlPullParser {
             next()
         }
         if (eventType != XmlPullParser.START_TAG && eventType != XmlPullParser.END_TAG) {
-            throw XmlPullParserException("expected START_TAG or END_TAG not " + jdk.internal.org.objectweb.asm.util.Printer.TYPES.get(eventType), this, null)
+            throw XmlPullParserException("expected START_TAG or END_TAG not " + XmlPullParser.getTypeOf(eventType), this, null)
         }
         return eventType
     }
@@ -2123,7 +2122,7 @@ class MXParser : XmlPullParser {
                 val codePoint: Int = sb.toString().toInt(if (isHex) 16 else 10)
                 isValidCodePoint = isValidCodePoint(codePoint)
                 if (isValidCodePoint) {
-                    resolvedEntityRefCharBuf = Character.toChars(codePoint) // TODO
+                    resolvedEntityRefCharBuf = Char.toChars(codePoint)
                 }
             } catch (e: IllegalArgumentException) {
                 isValidCodePoint = false
@@ -2319,7 +2318,7 @@ class MXParser : XmlPullParser {
                     seenDash = false
                 } else {
                     throw XmlPullParserException(
-                        "Illegal character 0x" + Integer.toHexString(ch) + " found in comment", this, null
+                        "Illegal character 0x" + ch.toString(16) + " found in comment", this, null
                     )
                 }
                 if (normalizeIgnorableWS) {
@@ -3009,7 +3008,7 @@ class MXParser : XmlPullParser {
         }
         // at least one character must be read or error
         val len = min((buf.size - bufEnd).toDouble(), READ_CHUNK_SIZE.toDouble()).toInt()
-        val ret: Int = reader.read(buf, bufEnd, len)
+        val ret: Int = reader!!.read(buf, bufEnd, len)
         if (ret > 0) {
             bufEnd += ret
             if (TRACE_SIZING) println(
@@ -3425,12 +3424,9 @@ class MXParser : XmlPullParser {
             ch == '\r'.code     -> "\\r"
             ch == '\t'.code     -> "\\t"
             ch == '\''.code     -> "\\'"
-            ch > 127 || ch < 32 -> "\\u" + toHexString(ch) // TODO implement
-            else                -> if (isBmpCodePoint(ch)) {
-                toString(ch.toChar()) // TODO implement
-            } else {
-                charArrayOf(highSurrogate(ch), lowSurrogate(ch)).concatToString()
-            }
+            ch > 127 || ch < 32 -> "\\u" + ch.toString(16).padStart(4, '0') // Unicode escape
+            isBmpCodePoint(ch)  -> ch.toChar().toString()
+            else                -> charArrayOf(highSurrogate(ch), lowSurrogate(ch)).concatToString()
         }
 
         private fun printable(s: String?): String? {
@@ -3444,7 +3440,9 @@ class MXParser : XmlPullParser {
             return s
         }
     }
-} /*
+}
+
+/*
  * Indiana University Extreme! Lab Software License, Version 1.2 Copyright (C) 2003 The Trustees of Indiana University.
  * All rights reserved. Redistribution and use in source and binary forms, with or without modification, are permitted
  * provided that the following conditions are met: 1) All redistributions of source code must retain the above copyright
