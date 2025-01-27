@@ -16,7 +16,6 @@
  */
 package io.github.lemcoder.reader
 
-import com.fleeksoft.charset.Charset
 import com.fleeksoft.charset.Charsets
 import com.fleeksoft.io.*
 import com.fleeksoft.io.exception.IOException
@@ -81,7 +80,7 @@ open class XmlReader : Reader {
      *
      *
      *
-     * @param `is` InputStream to create a Reader from.
+     * @param inputStream InputStream to create a Reader from.
      * @throws IOException thrown if there is a problem reading the stream.
      */
     @JvmOverloads
@@ -114,8 +113,8 @@ open class XmlReader : Reader {
     }
 
     @Throws(IOException::class)
-    private fun doRawStream(`is`: InputStream, lenient: Boolean) {
-        val pis: BufferedInputStream = BufferedInputStream(`is`, BUFFER_SIZE)
+    private fun doRawStream(inputStream: InputStream, lenient: Boolean) {
+        val pis: BufferedInputStream = BufferedInputStream(inputStream, BUFFER_SIZE)
         val bomEnc = getBOMEncoding(pis)
         val xmlGuessEnc = getXMLGuessEncoding(pis)
         val xmlEnc = getXmlProlog(pis, xmlGuessEnc)
@@ -124,8 +123,8 @@ open class XmlReader : Reader {
     }
 
     @Throws(IOException::class)
-    private fun prepareReader(`is`: InputStream, encoding: String) {
-        _reader = InputStreamReader(`is`, encoding)
+    private fun prepareReader(inputStream: InputStream, encoding: String) {
+        _reader = InputStreamReader(inputStream, encoding)
         this.encoding = encoding
     }
 
@@ -315,15 +314,15 @@ open class XmlReader : Reader {
 
         // returns the best guess for the encoding by looking the first bytes of the stream, '<?'
         @Throws(IOException::class)
-        private fun getXMLGuessEncoding(`is`: BufferedInputStream): String? {
+        private fun getXMLGuessEncoding(inputStream: BufferedInputStream): String? {
             var encoding: String? = null
             val bytes = IntArray(4)
-            `is`.mark(4)
-            bytes[0] = `is`.read()
-            bytes[1] = `is`.read()
-            bytes[2] = `is`.read()
-            bytes[3] = `is`.read()
-            `is`.reset()
+            inputStream.mark(4)
+            bytes[0] = inputStream.read()
+            bytes[1] = inputStream.read()
+            bytes[2] = inputStream.read()
+            bytes[3] = inputStream.read()
+            inputStream.reset()
 
             if (bytes[0] == 0x00 && bytes[1] == 0x3C && bytes[2] == 0x00 && bytes[3] == 0x3F) {
                 encoding = UTF_16BE
@@ -341,20 +340,20 @@ open class XmlReader : Reader {
 
         // returns the encoding declared in the <?xml encoding=...?>, NULL if none
         @Throws(IOException::class)
-        private fun getXmlProlog(`is`: BufferedInputStream, guessedEnc: String?): String? {
+        private fun getXmlProlog(inputStream: BufferedInputStream, guessedEnc: String?): String? {
             var encoding: String? = null
             if (guessedEnc != null) {
                 val bytes = ByteArray(BUFFER_SIZE)
-                `is`.mark(BUFFER_SIZE)
+                inputStream.mark(BUFFER_SIZE)
                 var offset = 0
                 var max = BUFFER_SIZE
-                var c: Int = `is`.read(bytes, offset, max)
+                var c: Int = inputStream.read(bytes, offset, max)
                 var firstGT = -1
                 var xmlProlog: String? = null
                 while (c != -1 && firstGT == -1 && offset < BUFFER_SIZE) {
                     offset += c
                     max -= c
-                    c = `is`.read(bytes, offset, max)
+                    c = inputStream.read(bytes, offset, max)
                     xmlProlog = Charsets.forName(guessedEnc).decode(ByteBufferFactory.wrap(bytes.copyOfRange(0, offset))).toString() // decode // FIXME
                     firstGT = xmlProlog.indexOf('>')
                 }
@@ -367,7 +366,7 @@ open class XmlReader : Reader {
                 }
                 val bytesRead = offset
                 if (bytesRead > 0) {
-                    `is`.reset()
+                    inputStream.reset()
                     val bReader: BufferedReader = BufferedReader(StringReader(xmlProlog!!.substring(0, firstGT + 1)))
                     val prolog: StringBuilder = StringBuilder()
                     var line: String? = bReader.readLine()
