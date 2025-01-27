@@ -22,38 +22,7 @@ import com.fleeksoft.io.exception.IOException
 import io.github.lemcoder.exceptions.XmlStreamReaderException
 import kotlin.jvm.JvmOverloads
 
-/**
- *
- * Character stream that handles (or at least attempts to) all the necessary Voodo to figure out the charset encoding of
- * the XML document within the stream.
- *
- *
- * IMPORTANT: This class is not related in any way to the org.xml.sax.XMLReader. This one IS a character stream.
- *
- *
- * All this has to be done without consuming characters from the stream, if not the XML parser will not recognized the
- * document as a valid XML. This is not 100% true, but it's close enough (UTF-8 BOM is not handled by all parsers right
- * now, XmlReader handles it and things work in all parsers).
- *
- *
- * The XmlReader class handles the charset encoding of XML documents in Files, raw streams and HTTP streams by offering
- * a wide set of constructors.
- *
- *
- * By default the charset encoding detection is lenient, the constructor with the lenient flag can be used for an script
- * (following HTTP MIME and XML specifications). All this is nicely explained by Mark Pilgrim in his blog,
- * [ Determining the character encoding of a
- * feed](http://diveintomark.org/archives/2004/02/13/xml-media-types).
- *
- * @author Alejandro Abdelnur
- * @version revision 1.17 taken on 26/06/2007 from Rome (see
- * https://rome.dev.java.net/source/browse/rome/src/java/com/sun/syndication/io/XmlReader.java)
- * @since 1.4.3
- */
-@Deprecated(
-    """use XmlStreamReader
-  """
-)
+@Deprecated("use XmlStreamReader")
 open class XmlReader : Reader {
     private var _reader: Reader? = null
 
@@ -114,7 +83,7 @@ open class XmlReader : Reader {
 
     @Throws(IOException::class)
     private fun doRawStream(inputStream: InputStream, lenient: Boolean) {
-        val pis: BufferedInputStream = BufferedInputStream(inputStream, BUFFER_SIZE)
+        val pis = BufferedInputStream(inputStream, BUFFER_SIZE)
         val bomEnc = getBOMEncoding(pis)
         val xmlGuessEnc = getXMLGuessEncoding(pis)
         val xmlEnc = getXmlProlog(pis, xmlGuessEnc)
@@ -165,53 +134,6 @@ open class XmlReader : Reader {
             throw XmlStreamReaderException(
 //                RAW_EX_2.format(arrayOf<Any?>(bomEnc, xmlGuessEnc, xmlEnc)), bomEnc, xmlGuessEnc, xmlEnc, inputStream
             )
-        }
-        return encoding
-    }
-
-    // InputStream is passed for XmlStreamReaderException creation only
-    @Throws(IOException::class)
-    private fun calculateHttpEncoding(
-        cTMime: String?,
-        cTEnc: String?,
-        bomEnc: String?,
-        xmlGuessEnc: String?,
-        xmlEnc: String?,
-        inputStream: InputStream,
-        lenient: Boolean
-    ): String? {
-        val encoding = if (lenient and (xmlEnc != null)) {
-            xmlEnc
-        } else {
-            val appXml = isAppXml(cTMime)
-            val textXml = isTextXml(cTMime)
-            if (appXml || textXml) {
-                if (cTEnc == null) {
-                    if (appXml) {
-                        calculateRawEncoding(bomEnc, xmlGuessEnc, xmlEnc, inputStream)
-                    } else {
-                        _defaultEncoding ?: US_ASCII
-                    }
-                } else if (bomEnc != null && (cTEnc == UTF_16BE || cTEnc == UTF_16LE)) {
-                    throw XmlStreamReaderException(
-//                        HTTP_EX_1.format(arrayOf<Any?>(cTMime, cTEnc, bomEnc, xmlGuessEnc, xmlEnc)), cTMime, cTEnc, bomEnc, xmlGuessEnc, xmlEnc, inputStream
-                    )
-                } else if (cTEnc == UTF_16) {
-                    if (bomEnc != null && bomEnc.startsWith(UTF_16)) {
-                        bomEnc
-                    } else {
-                        throw XmlStreamReaderException(
-//                            HTTP_EX_2.format(arrayOf<Any?>(cTMime, cTEnc, bomEnc, xmlGuessEnc, xmlEnc)), cTMime, cTEnc, bomEnc, xmlGuessEnc, xmlEnc, inputStream
-                        )
-                    }
-                } else {
-                    cTEnc
-                }
-            } else {
-                throw XmlStreamReaderException(
-//                    HTTP_EX_3.format(arrayOf<Any?>(cTMime, cTEnc, bomEnc, xmlGuessEnc, xmlEnc)), cTMime, cTEnc, bomEnc, xmlGuessEnc, xmlEnc, inputStream
-                )
-            }
         }
         return encoding
     }
@@ -367,8 +289,8 @@ open class XmlReader : Reader {
                 val bytesRead = offset
                 if (bytesRead > 0) {
                     inputStream.reset()
-                    val bReader: BufferedReader = BufferedReader(StringReader(xmlProlog!!.substring(0, firstGT + 1)))
-                    val prolog: StringBuilder = StringBuilder()
+                    val bReader = BufferedReader(StringReader(xmlProlog!!.substring(0, firstGT + 1)))
+                    val prolog = StringBuilder()
                     var line: String? = bReader.readLine()
                     while (line != null) {
                         prolog.append(line)
@@ -382,23 +304,6 @@ open class XmlReader : Reader {
                 }
             }
             return encoding
-        }
-
-        // indicates if the MIME type belongs to the APPLICATION XML family
-        private fun isAppXml(mime: String?): Boolean {
-            return mime != null
-                    && (mime == "application/xml"
-                    || mime == "application/xml-dtd"
-                    || mime == "application/xml-external-parsed-entity"
-                    || (mime.startsWith("application/") && mime.endsWith("+xml")))
-        }
-
-        // indicates if the MIME type belongs to the TEXT XML family
-        private fun isTextXml(mime: String?): Boolean {
-            return mime != null
-                    && (mime == "text/xml"
-                    || mime == "text/xml-external-parsed-entity"
-                    || (mime.startsWith("text/") && mime.endsWith("+xml")))
         }
 
 //        private val RAW_EX_1: MessageFormat = MessageFormat("Invalid encoding, BOM [{0}] XML guess [{1}] XML prolog [{2}] encoding mismatch")
