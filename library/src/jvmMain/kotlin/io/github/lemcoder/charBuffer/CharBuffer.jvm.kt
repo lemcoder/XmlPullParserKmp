@@ -1,4 +1,3 @@
 package io.github.lemcoder.charBuffer
 
-actual abstract class CharBuffer {
-}
+actual typealias CharBuffer = java.nio.CharBuffer

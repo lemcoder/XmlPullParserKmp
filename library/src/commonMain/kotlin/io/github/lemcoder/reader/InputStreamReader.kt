@@ -2,7 +2,7 @@ package io.github.lemcoder.reader
 
 import io.github.lemcoder.inputStream.InputStream
 
-expect class XmlStreamReader(
+expect class InputStreamReader constructor(
     inputStream: InputStream,
-    lenient: Boolean
+    inputEncoding: String
 ) : Reader

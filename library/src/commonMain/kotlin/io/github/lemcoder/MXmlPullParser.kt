@@ -9,6 +9,8 @@ import io.github.lemcoder.exceptions.IOException
 import io.github.lemcoder.exceptions.XmlPullParserException
 import io.github.lemcoder.exceptions.XmlStreamReaderException
 import io.github.lemcoder.inputStream.InputStream
+import io.github.lemcoder.reader.InputStreamReader
+import io.github.lemcoder.reader.Readable
 import io.github.lemcoder.reader.Reader
 import io.github.lemcoder.reader.XmlStreamReader
 import io.github.lemcoder.utils.*
@@ -536,8 +538,7 @@ class MXParser : XmlPullParser {
         val reader: Reader
         try {
             if (inputEncoding != null) {
-                TODO()
-                // reader = InputStreamReader(inputStream, inputEncoding)
+                reader = InputStreamReader(inputStream, inputEncoding)
             } else {
                 reader = XmlStreamReader(inputStream, false)
             }
@@ -3008,7 +3009,7 @@ class MXParser : XmlPullParser {
         }
         // at least one character must be read or error
         val len = min((buf.size - bufEnd).toDouble(), READ_CHUNK_SIZE.toDouble()).toInt()
-        val ret: Int = reader!!.read(buf, bufEnd, len)
+        val ret: Int = (reader!! as Readable).read(buf, bufEnd, len) // FIXME
         if (ret > 0) {
             bufEnd += ret
             if (TRACE_SIZING) println(
