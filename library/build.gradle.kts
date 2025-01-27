@@ -15,12 +15,13 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-    linuxX64()
+    // linuxX64()
 
     sourceSets {
         val commonMain by getting {
             dependencies {
-                //put your multiplatform dependencies here
+                implementation("com.fleeksoft.io:io-core:0.0.2")
+                implementation("com.fleeksoft.io:io:0.0.2")
             }
         }
         val commonTest by getting {

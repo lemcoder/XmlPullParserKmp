@@ -1,6 +1,6 @@
 package io.github.lemcoder.exceptions
 
-import io.github.lemcoder.inputStream.InputStream
+import com.fleeksoft.io.InputStream
 
 
 /**

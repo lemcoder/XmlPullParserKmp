@@ -1,17 +1,16 @@
 package io.github.lemcoder
 
+import com.fleeksoft.io.InputStream
+import com.fleeksoft.io.InputStreamReader
+import com.fleeksoft.io.Reader
+import com.fleeksoft.io.exception.IOException
 import io.github.lemcoder.codePoints.CodePoints
 import io.github.lemcoder.codePoints.CodePoints.highSurrogate
 import io.github.lemcoder.codePoints.CodePoints.isBmpCodePoint
 import io.github.lemcoder.codePoints.CodePoints.lowSurrogate
 import io.github.lemcoder.exceptions.EOFException
-import io.github.lemcoder.exceptions.IOException
 import io.github.lemcoder.exceptions.XmlPullParserException
 import io.github.lemcoder.exceptions.XmlStreamReaderException
-import io.github.lemcoder.inputStream.InputStream
-import io.github.lemcoder.reader.InputStreamReader
-import io.github.lemcoder.reader.Readable
-import io.github.lemcoder.reader.Reader
 import io.github.lemcoder.reader.XmlStreamReader
 import io.github.lemcoder.utils.*
 import kotlin.math.min
@@ -3009,7 +3008,7 @@ class MXParser : XmlPullParser {
         }
         // at least one character must be read or error
         val len = min((buf.size - bufEnd).toDouble(), READ_CHUNK_SIZE.toDouble()).toInt()
-        val ret: Int = (reader!! as Readable).read(buf, bufEnd, len) // FIXME
+        val ret: Int = reader!!.read(buf, bufEnd, len) // FIXME
         if (ret > 0) {
             bufEnd += ret
             if (TRACE_SIZING) println(

@@ -1,9 +1,9 @@
 package io.github.lemcoder
 
-import io.github.lemcoder.exceptions.IOException
+import com.fleeksoft.io.InputStream
+import com.fleeksoft.io.Reader
+import com.fleeksoft.io.exception.IOException
 import io.github.lemcoder.exceptions.XmlPullParserException
-import io.github.lemcoder.inputStream.InputStream
-import io.github.lemcoder.reader.Reader
 
 
 /**

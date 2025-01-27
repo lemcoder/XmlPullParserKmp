@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.io.File
+import java.nio.file.Paths
 
 /**
  *
@@ -918,7 +920,7 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     fun encodingISO88591NewXmlReader() {
         try {
-            XmlStreamReader(java.nio.file.Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
+            XmlStreamReader(Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
                 val parser: MXParser = MXParser()
                 parser.setInput(reader)
                 while (parser.nextToken() !== XmlPullParser.END_DOCUMENT);
@@ -965,7 +967,7 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     fun encodingISO88591StringReader() {
         var xmlFileContents: String
-        XmlStreamReader(java.nio.file.Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
+        XmlStreamReader(Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
             xmlFileContents = readAllFrom(reader)
         }
         assertDoesNotThrow(
@@ -1044,7 +1046,7 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     fun encodingUTF8NewXmlReader() {
         try {
-            XmlStreamReader(java.nio.file.Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
+            XmlStreamReader(Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
                 val parser: MXParser = MXParser()
                 parser.setInput(reader)
                 while (parser.nextToken() !== XmlPullParser.END_DOCUMENT);
@@ -1238,7 +1240,7 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     private fun testDocdeclTextWithEntities(filename: String) {
         try {
-            XmlStreamReader(java.io.File("src/jvmTest/resources/xml", filename)).use { reader ->
+            XmlStreamReader(File("src/jvmTest/resources/xml", filename)).use { reader ->
                 val parser: MXParser = MXParser()
                 parser.setInput(reader)
                 assertEquals(XmlPullParser.PROCESSING_INSTRUCTION, parser.nextToken())
