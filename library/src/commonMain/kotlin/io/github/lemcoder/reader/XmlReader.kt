@@ -258,7 +258,7 @@ open class XmlReader : Reader {
             return encoding
         }
 
-        val ENCODING_PATTERN = Regex("<\\?xml.*encoding[\\s]*=[\\s]*((?:\".[^\"]*\")|(?:'.[^']*'))", RegexOption.MULTILINE)
+        val ENCODING_PATTERN = Regex("<\\?xml.*encoding\\s*=\\s*(\".[^\"]*\"|'.[^']*')", RegexOption.MULTILINE)
 
         // returns the encoding declared in the <?xml encoding=...?>, NULL if none
         @Throws(IOException::class)
@@ -269,18 +269,18 @@ open class XmlReader : Reader {
                 inputStream.mark(BUFFER_SIZE)
                 var offset = 0
                 var max = BUFFER_SIZE
-                var c: Int = inputStream.read(bytes, offset, max)
+                var readBytesLength: Int = inputStream.read(bytes, offset, max)
                 var firstGT = -1
                 var xmlProlog: String? = null
-                while (c != -1 && firstGT == -1 && offset < BUFFER_SIZE) {
-                    offset += c
-                    max -= c
-                    c = inputStream.read(bytes, offset, max)
+                while (readBytesLength != -1 && firstGT == -1 && offset < BUFFER_SIZE) {
+                    offset += readBytesLength
+                    max -= readBytesLength
+                    readBytesLength = inputStream.read(bytes, offset, max)
                     xmlProlog = Charsets.forName(guessedEnc).decode(ByteBufferFactory.wrap(bytes.copyOfRange(0, offset))).toString() // decode // FIXME
                     firstGT = xmlProlog.indexOf('>')
                 }
                 if (firstGT == -1) {
-                    if (c == -1) {
+                    if (readBytesLength == -1) {
                         throw IOException("Unexpected end of XML stream")
                     } else {
                         throw IOException("XML prolog or ROOT element not found on first $offset bytes")
@@ -289,16 +289,16 @@ open class XmlReader : Reader {
                 val bytesRead = offset
                 if (bytesRead > 0) {
                     inputStream.reset()
-                    val bReader = BufferedReader(StringReader(xmlProlog!!.substring(0, firstGT + 1)))
+                    val bufferedReader = BufferedReader(StringReader(xmlProlog!!.substring(0, firstGT + 1)))
                     val prolog = StringBuilder()
-                    var line: String? = bReader.readLine()
+                    var line: String? = bufferedReader.readLine()
                     while (line != null) {
                         prolog.append(line)
-                        line = bReader.readLine()
+                        line = bufferedReader.readLine()
                     }
-                    val m = ENCODING_PATTERN.matchEntire(prolog) // FIXME
-                    if (m != null) {
-                        encoding = m.groupValues[1].uppercase()
+                    val matchResult = ENCODING_PATTERN.find(prolog)
+                    if (matchResult != null) {
+                        encoding = matchResult.groupValues[1].uppercase()
                         encoding = encoding.substring(1, encoding.length - 1)
                     }
                 }
