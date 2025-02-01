@@ -20,8 +20,8 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("com.fleeksoft.io:io-core:0.0.2")
-                implementation("com.fleeksoft.io:io:0.0.2")
+                implementation(libs.fleeksoft.io.core)
+                implementation(libs.fleeksoft.io.io)
             }
         }
         val commonTest by getting {

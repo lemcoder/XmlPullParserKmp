@@ -15,17 +15,19 @@ package io.github.lemcoder
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import com.fleeksoft.io.InputStream
+import com.fleeksoft.io.StringReader
 import io.github.lemcoder.TestUtils.readAllFrom
-import org.codehaus.plexus.util.xml.XmlStreamReader
-import org.codehaus.plexus.util.xml.pull.EntityReplacementMap
-import org.codehaus.plexus.util.xml.pull.MXParser
-import org.codehaus.plexus.util.xml.pull.XmlPullParserException
+import io.github.lemcoder.exceptions.XmlPullParserException
+import io.github.lemcoder.reader.XmlStreamReader
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.nio.file.Paths
+import kotlin.io.path.inputStream
+import org.codehaus.plexus.util.xml.pull.MXParser as PlexusMXParser
 
 /**
  *
@@ -46,18 +48,24 @@ internal class MXParserTest {
     @Throws(java.lang.Exception::class)
     fun hexadecimalEntities() {
         val parser: MXParser = MXParser()
+//        val parser: PlexusMXParser = PlexusMXParser()
 
         parser.defineEntityReplacementText("test", "replacement")
 
-        val input = "<root>&#x41;</root>"
+//        val input = "<root>&#x41;</root>"
+        val input = "<root>A</root>"
 
-        parser.setInput(java.io.StringReader(input))
+        parser.setInput(StringReader(input))
 
         assertEquals(XmlPullParser.START_TAG, parser.next())
+        println(parser.getName())
 
         assertEquals(XmlPullParser.TEXT, parser.next())
+        println(parser.getName())
+
 
         assertEquals("A", parser.getText())
+        println(parser.getName())
 
         assertEquals(XmlPullParser.END_TAG, parser.next())
     }
@@ -920,12 +928,13 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     fun encodingISO88591NewXmlReader() {
         try {
-            XmlStreamReader(Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
-                val parser: MXParser = MXParser()
-                parser.setInput(reader)
-                while (parser.nextToken() !== XmlPullParser.END_DOCUMENT);
-                assertTrue(true)
-            }
+            val paths = Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")
+            val inputStream: InputStream = paths.inputStream()
+            val reader = XmlStreamReader(inputStream, false)
+            val parser: MXParser = MXParser()
+            parser.setInput(reader)
+            while (parser.nextToken() !== XmlPullParser.END_DOCUMENT);
+            assertTrue(true)
         } catch (e: XmlPullParserException) {
             fail("should not raise exception: $e")
         }
@@ -967,9 +976,11 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     fun encodingISO88591StringReader() {
         var xmlFileContents: String
-        XmlStreamReader(Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
-            xmlFileContents = readAllFrom(reader)
-        }
+        val paths = Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")
+        val inputStream = paths.inputStream()
+        val reader = XmlStreamReader(inputStream, false)
+        xmlFileContents = readAllFrom(reader)
+
         assertDoesNotThrow(
             {
                 val parser: MXParser = MXParser()
@@ -1046,12 +1057,13 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     fun encodingUTF8NewXmlReader() {
         try {
-            XmlStreamReader(Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")).use { reader ->
-                val parser: MXParser = MXParser()
-                parser.setInput(reader)
-                while (parser.nextToken() !== XmlPullParser.END_DOCUMENT);
-                assertTrue(true)
-            }
+            val paths = Paths.get("src/jvmTest/resources/xml", "test-encoding-ISO-8859-1.xml")
+            val inputStream: InputStream = paths.inputStream()
+            val reader = XmlStreamReader(inputStream, false)
+            val parser: MXParser = MXParser()
+            parser.setInput(reader)
+            while (parser.nextToken() !== XmlPullParser.END_DOCUMENT);
+            assertTrue(true)
         } catch (e: XmlPullParserException) {
             fail("should not raise exception: $e")
         }
@@ -1089,7 +1101,7 @@ internal class MXParserTest {
                         "could not resolve entity named 'otherentity' (position: START_TAG seen <root>&otherentity;... @1:20)"
                     )
             )
-            assertEquals(XmlPullParser.START_TAG, parser.eventType) // not an ENTITY_REF
+            assertEquals(XmlPullParser.START_TAG, parser.getEventType()) // not an ENTITY_REF
             assertEquals("otherentity", parser.getText())
         }
     }
@@ -1156,7 +1168,7 @@ internal class MXParserTest {
                         "could not resolve entity named 'otherentity' (position: START_DOCUMENT seen <root name=\"&otherentity;... @1:26)"
                     )
             )
-            assertEquals(XmlPullParser.START_DOCUMENT, parser.eventType) // not an ENTITY_REF
+            assertEquals(XmlPullParser.START_DOCUMENT, parser.getEventType()) // not an ENTITY_REF
             assertNull(parser.getText())
         }
     }
@@ -1194,7 +1206,7 @@ internal class MXParserTest {
                         "could not resolve entity named 'otherentity' (position: START_DOCUMENT seen <root name=\"&otherentity;... @1:26)"
                     )
             )
-            assertEquals(XmlPullParser.START_DOCUMENT, parser.eventType) // not an ENTITY_REF
+            assertEquals(XmlPullParser.START_DOCUMENT, parser.getEventType()) // not an ENTITY_REF
             assertNull(parser.getText())
         }
     }
@@ -1240,25 +1252,27 @@ internal class MXParserTest {
     @Throws(java.io.IOException::class)
     private fun testDocdeclTextWithEntities(filename: String) {
         try {
-            XmlStreamReader(File("src/jvmTest/resources/xml", filename)).use { reader ->
-                val parser: MXParser = MXParser()
-                parser.setInput(reader)
-                assertEquals(XmlPullParser.PROCESSING_INSTRUCTION, parser.nextToken())
-                assertEquals(XmlPullParser.IGNORABLE_WHITESPACE, parser.nextToken())
-                assertEquals(XmlPullParser.DOCDECL, parser.nextToken())
-                assertEquals(
-                    """ document [
+            val file = File("src/jvmTest/resources/xml", filename)
+            val inputStream = file.inputStream()
+
+            val reader = XmlStreamReader(inputStream, false)
+            val parser: MXParser = MXParser()
+            parser.setInput(reader)
+            assertEquals(XmlPullParser.PROCESSING_INSTRUCTION, parser.nextToken())
+            assertEquals(XmlPullParser.IGNORABLE_WHITESPACE, parser.nextToken())
+            assertEquals(XmlPullParser.DOCDECL, parser.nextToken())
+            assertEquals(
+                """ document [
 <!ENTITY flo "&#x159;">
 <!ENTITY myCustomEntity "&flo;">
 ]""",
-                    parser.getText()
-                )
-                assertEquals(XmlPullParser.IGNORABLE_WHITESPACE, parser.nextToken())
-                assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-                assertEquals("document", parser.name)
-                assertEquals(XmlPullParser.TEXT, parser.next())
-                fail("should fail to resolve 'myCustomEntity' entity")
-            }
+                parser.getText()
+            )
+            assertEquals(XmlPullParser.IGNORABLE_WHITESPACE, parser.nextToken())
+            assertEquals(XmlPullParser.START_TAG, parser.nextToken())
+            assertEquals("document", parser.getName())
+            assertEquals(XmlPullParser.TEXT, parser.next())
+            fail("should fail to resolve 'myCustomEntity' entity")
         } catch (e: XmlPullParserException) {
             assertTrue(e.message!!.contains("could not resolve entity named 'myCustomEntity'"))
         }
@@ -1328,7 +1342,7 @@ internal class MXParserTest {
                 )
                 assertEquals(XmlPullParser.IGNORABLE_WHITESPACE, parser.nextToken())
                 assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-                assertEquals("document", parser.name)
+                assertEquals("document", parser.getName())
                 assertEquals(1, parser.getAttributeCount())
                 assertEquals("name", parser.getAttributeName(0))
                 assertEquals(
@@ -1337,7 +1351,7 @@ internal class MXParserTest {
                 )
 
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
-                assertEquals("myCustomEntity", parser.name)
+                assertEquals("myCustomEntity", parser.getName())
                 assertEquals("&#x159;", parser.getText())
 
                 assertEquals(XmlPullParser.END_TAG, parser.nextToken())
@@ -1413,21 +1427,21 @@ internal class MXParserTest {
                 )
                 assertEquals(XmlPullParser.IGNORABLE_WHITESPACE, parser.nextToken())
                 assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-                assertEquals("b", parser.name)
+                assertEquals("b", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&#x159;", parser.getText())
-                assertEquals("foo", parser.name)
+                assertEquals("foo", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&#160;", parser.getText())
-                assertEquals("foo1", parser.name)
+                assertEquals("foo1", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&#x161;", parser.getText())
-                assertEquals("foo2", parser.name)
+                assertEquals("foo2", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&#x1d7ed;", parser.getText())
-                assertEquals("tritPos", parser.name)
+                assertEquals("tritPos", parser.getName())
                 assertEquals(XmlPullParser.END_TAG, parser.nextToken())
-                assertEquals("b", parser.name)
+                assertEquals("b", parser.getName())
                 assertEquals(XmlPullParser.END_DOCUMENT, parser.nextToken())
             },
             "should not raise exception: "
@@ -1455,23 +1469,23 @@ internal class MXParserTest {
                 parser.defineEntityReplacementText("nbsp", "&#160;")
 
                 assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-                assertEquals("p", parser.name)
+                assertEquals("p", parser.getName())
                 assertEquals(XmlPullParser.COMMENT, parser.nextToken())
                 assertEquals(" a pagebreak: ", parser.getText())
                 assertEquals(XmlPullParser.COMMENT, parser.nextToken())
                 assertEquals(" PB ", parser.getText())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("\u00A0", parser.getText())
-                assertEquals("#160", parser.name)
+                assertEquals("#160", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&#160;", parser.getText())
-                assertEquals("nbsp", parser.name)
+                assertEquals("nbsp", parser.getName())
                 assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-                assertEquals("unknown", parser.name)
+                assertEquals("unknown", parser.getName())
                 assertEquals(XmlPullParser.END_TAG, parser.nextToken())
-                assertEquals("unknown", parser.name)
+                assertEquals("unknown", parser.getName())
                 assertEquals(XmlPullParser.END_TAG, parser.nextToken())
-                assertEquals("p", parser.name)
+                assertEquals("p", parser.getName())
                 assertEquals(XmlPullParser.END_DOCUMENT, parser.nextToken())
             },
             "should not raise exception: "
@@ -1504,26 +1518,26 @@ internal class MXParserTest {
                 assertEquals(XmlPullParser.DOCDECL, parser.nextToken())
                 assertEquals(" test [<!ENTITY foo \"&#x159;\"><!ENTITY tritPos  \"&#x1d7ed;\">]", parser.getText())
                 assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-                assertEquals("section", parser.name)
+                assertEquals("section", parser.getName())
                 assertEquals(1, parser.getAttributeCount())
                 assertEquals("name", parser.getAttributeName(0))
                 assertEquals("&&#x159;&#x1d7ed;", parser.getAttributeValue(0))
                 assertEquals(XmlPullParser.START_TAG, parser.nextToken())
                 assertEquals("<p>", parser.getText())
-                assertEquals("p", parser.name)
+                assertEquals("p", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&", parser.getText())
-                assertEquals("amp", parser.name)
+                assertEquals("amp", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&#x159;", parser.getText())
-                assertEquals("foo", parser.name)
+                assertEquals("foo", parser.getName())
                 assertEquals(XmlPullParser.ENTITY_REF, parser.nextToken())
                 assertEquals("&#x1d7ed;", parser.getText())
-                assertEquals("tritPos", parser.name)
+                assertEquals("tritPos", parser.getName())
                 assertEquals(XmlPullParser.END_TAG, parser.nextToken())
-                assertEquals("p", parser.name)
+                assertEquals("p", parser.getName())
                 assertEquals(XmlPullParser.END_TAG, parser.nextToken())
-                assertEquals("section", parser.name)
+                assertEquals("section", parser.getName())
                 assertEquals(XmlPullParser.END_DOCUMENT, parser.nextToken())
             },
             "should not raise exception: "
@@ -1543,11 +1557,11 @@ internal class MXParserTest {
             parser.setInput(java.io.StringReader(input))
 
             assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-            assertEquals("project", parser.name)
+            assertEquals("project", parser.getName())
             assertEquals(XmlPullParser.COMMENT, parser.nextToken())
             assertEquals("ALL TEH BOMS!  \uD83D\uDCA3  ", parser.getText())
             assertEquals(XmlPullParser.END_TAG, parser.nextToken())
-            assertEquals("project", parser.name)
+            assertEquals("project", parser.getName())
         } catch (e: XmlPullParserException) {
             e.printStackTrace()
             fail("should not raise exception: $e")
@@ -1562,11 +1576,11 @@ internal class MXParserTest {
         val parser: MXParser = MXParser()
         parser.setInput(java.io.StringReader(input))
 
-        assertEquals(XmlPullParser.START_DOCUMENT, parser.eventType)
+        assertEquals(XmlPullParser.START_DOCUMENT, parser.getEventType())
         assertEquals(XmlPullParser.PROCESSING_INSTRUCTION, parser.nextToken())
         assertEquals("a", parser.getText())
         assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-        assertEquals("test", parser.name)
+        assertEquals("test", parser.getEventType())
         assertEquals(XmlPullParser.TEXT, parser.nextToken())
         assertEquals("nnn", parser.getText())
         assertEquals(XmlPullParser.END_TAG, parser.nextToken())
@@ -1581,13 +1595,13 @@ internal class MXParserTest {
         val parser: MXParser = MXParser()
         parser.setInput(java.io.StringReader(input))
 
-        assertEquals(XmlPullParser.START_DOCUMENT, parser.eventType)
+        assertEquals(XmlPullParser.START_DOCUMENT, parser.getEventType())
         assertEquals(XmlPullParser.PROCESSING_INSTRUCTION, parser.nextToken())
         assertEquals("xml version=\"1.0\" encoding=\"UTF-8\"", parser.getText())
         assertEquals(XmlPullParser.PROCESSING_INSTRUCTION, parser.nextToken())
         assertEquals("a", parser.getText())
         assertEquals(XmlPullParser.START_TAG, parser.nextToken())
-        assertEquals("test", parser.name)
+        assertEquals("test", parser.getEventType())
         assertEquals(XmlPullParser.TEXT, parser.nextToken())
         assertEquals("nnn", parser.getText())
         assertEquals(XmlPullParser.END_TAG, parser.nextToken())
@@ -1615,8 +1629,8 @@ internal class MXParserTest {
 
     companion object {
         private fun assertPosition(row: Int, col: Int, parser: MXParser) {
-            assertEquals(row, parser.lineNumber, "Current line")
-            assertEquals(col, parser.columnNumber, "Current column")
+            assertEquals(row, parser.getLineNumber(), "Current line")
+            assertEquals(col, parser.getColumnNumber(), "Current column")
         }
     }
 }

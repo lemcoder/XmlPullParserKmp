@@ -28,13 +28,13 @@ class XmlPullParserException : Exception {
      */
     constructor(msg: String?, parser: XmlPullParser?, chain: Throwable?) : super(
         ((if (msg == null) "" else "$msg ")
-                + (if (parser == null) "" else "(position:" + parser.positionDescription + ") ")
+                + (if (parser == null) "" else "(position:" + parser.getPositionDescription() + ") ")
                 + (if (chain == null) "" else "caused by: $chain")),
         chain
     ) {
         if (parser != null) {
-            this.lineNumber = parser.lineNumber
-            this.columnNumber = parser.columnNumber
+            this.lineNumber = parser.getLineNumber()
+            this.columnNumber = parser.getColumnNumber()
         }
         this.detail = chain
     }

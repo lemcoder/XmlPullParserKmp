@@ -1,5 +1,7 @@
 package io.github.lemcoder
 
+import com.fleeksoft.io.exception.ArrayIndexOutOfBoundsException
+
 /*
  * Copyright The Codehaus Foundation.
  *
@@ -16,55 +18,45 @@ package io.github.lemcoder
  * limitations under the License.
  */
 class EntityReplacementMap(replacements: Array<Array<String>>) {
-    val entityName: Array<String?>
-
-    val entityNameBuf: Array<CharArray?>
-
-    val entityReplacement: Array<String>
-
-    val entityReplacementBuf: Array<CharArray>
-
+    val entityName: Array<String?> = arrayOfNulls(replacements.size)
+    val entityNameBuf: Array<CharArray?> = arrayOfNulls(replacements.size)
+    val entityReplacement: Array<String?> = arrayOfNulls(replacements.size)
+    val entityReplacementBuf: Array<CharArray?> = arrayOfNulls(replacements.size)
     var entityEnd: Int = 0
+    val entityNameHash: IntArray = IntArray(replacements.size)
 
-    val entityNameHash: IntArray
+    init {
+        for (replacement in replacements) {
+            defineEntityReplacementText(replacement[0], replacement[1])
+        }
+    }
 
     private fun defineEntityReplacementText(entityName: String, replacementText: String) {
         var replacementTextCopy = replacementText
-        if (!replacementTextCopy.startsWith("&#") && replacementTextCopy.length > 1) {
+        if (!replacementTextCopy.startsWith("&#") && this.entityName.isNotEmpty() && replacementTextCopy.length > 1) {
             val tmp = replacementTextCopy.substring(1, replacementTextCopy.length - 1)
             for (i in this.entityName.indices) {
                 if (this.entityName[i] != null && this.entityName[i] == tmp) {
-                    replacementTextCopy = entityReplacement[i]
+                    replacementTextCopy = this.entityReplacement[i]!!
                 }
             }
         }
 
-        // this is to make sure that if interning works we will take advantage of it ...
+        if (entityEnd >= this.entityName.size) {
+            throw ArrayIndexOutOfBoundsException("Entity end index $entityEnd out of bounds for length ${this.entityName.size}")
+        }
+
         val entityNameCharData = entityName.toCharArray()
-        // noinspection ConstantConditions
-        this.entityName!![entityEnd] = newString(entityNameCharData, 0, entityName.length)
+        this.entityName[entityEnd] = entityNameCharData.concatToString(0, entityName.length)
         entityNameBuf[entityEnd] = entityNameCharData
 
         entityReplacement[entityEnd] = replacementTextCopy
         entityReplacementBuf[entityEnd] = replacementTextCopy.toCharArray()
         entityNameHash[entityEnd] = fastHash(entityNameBuf[entityEnd], 0, entityNameBuf[entityEnd]!!.size)
         ++entityEnd
-        // TODO disallow < or & in entity replacement text (or ]]>???)
-        // TODO keepEntityNormalizedForAttributeValue cached as well ...
-    }
-
-    private fun newString(cbuf: CharArray, off: Int, len: Int): String {
-        return cbuf.concatToString(off, off + len)
     }
 
     init {
-        val length = replacements.size
-        entityName = arrayOfNulls(length)
-        entityNameBuf = arrayOfNulls(length)
-        entityReplacement = Array(length) { "" }
-        entityReplacementBuf = Array(length) { CharArray(0) }
-        entityNameHash = IntArray(length)
-
         for (replacement in replacements) {
             defineEntityReplacementText(replacement[0], replacement[1])
         }

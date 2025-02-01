@@ -3,16 +3,19 @@ package io.github.lemcoder
 import com.fleeksoft.io.InputStream
 import com.fleeksoft.io.InputStreamReader
 import com.fleeksoft.io.Reader
+import com.fleeksoft.io.exception.EOFException
 import com.fleeksoft.io.exception.IOException
+import com.fleeksoft.lang.Character
 import io.github.lemcoder.codePoints.CodePoints
 import io.github.lemcoder.codePoints.CodePoints.highSurrogate
 import io.github.lemcoder.codePoints.CodePoints.isBmpCodePoint
 import io.github.lemcoder.codePoints.CodePoints.lowSurrogate
-import io.github.lemcoder.exceptions.EOFException
 import io.github.lemcoder.exceptions.XmlPullParserException
 import io.github.lemcoder.exceptions.XmlStreamReaderException
 import io.github.lemcoder.reader.XmlStreamReader
-import io.github.lemcoder.utils.*
+import io.github.lemcoder.utils.arraycopy
+import io.github.lemcoder.utils.codePointAt
+import io.github.lemcoder.utils.codePointCount
 import kotlin.math.min
 
 // TODO best handling of interning issues
@@ -48,7 +51,7 @@ class MXParser : XmlPullParser {
     }
 
     private fun newStringIntern(cbuf: CharArray, off: Int, len: Int): String {
-        return (cbuf.concatToString(off, off + len)) // .intern() // CHANGE
+        return cbuf.concatToString(off, off + len)
     }
 
     // NOTE: features are not resetable and typically defaults to false ...
@@ -59,39 +62,50 @@ class MXParser : XmlPullParser {
     // global parser state
     private var location: String? = null
 
-    override var lineNumber: Int = 0
-        private set
+    private var lineNumber: Int = 0
 
-    override var columnNumber: Int = 0
-        private set
+    override fun getLineNumber(): Int {
+        return lineNumber
+    }
+
+    private var columnNumber: Int = 0
+
+    override fun getColumnNumber(): Int {
+        return columnNumber
+    }
 
     private var seenRoot = false
 
     private var reachedEnd = false
 
-    override var eventType: Int = 0
-        private set
+    private var eventType: Int = 0
+
+    override fun getEventType(): Int {
+        return eventType
+    }
 
     private var emptyElementTag = false
 
-    // element stack
-    override var depth: Int = 0
-        private set
+    private var depth: Int = 0
 
-    private var elRawName: Array<CharArray?>? = null
+    override fun getDepth(): Int {
+        return depth
+    }
 
-    private var elRawNameEnd: IntArray = IntArray(8)
+    private var elRawName: Array<CharArray?> = arrayOf()
 
-    private var elRawNameLine: IntArray = IntArray(8)
+    private var elRawNameEnd: IntArray = intArrayOf()
 
-    private var elName: Array<String?>? = null
+    private var elRawNameLine: IntArray = intArrayOf()
 
-    private var elPrefix: Array<String?> = arrayOfNulls(8)
+    private var elName: Array<String?> = arrayOf()
 
-    private var elUri: Array<String?> = arrayOfNulls(8)
+    private var elPrefix: Array<String?> = arrayOf()
+
+    private var elUri: Array<String?> = arrayOf()
 
     // private String elValue[];
-    private var elNamespaceCount: IntArray = IntArray(8)
+    private var elNamespaceCount: IntArray = intArrayOf()
 
     private val fileEncoding: String? = null
 
@@ -100,87 +114,47 @@ class MXParser : XmlPullParser {
      * slot then current depth
      */
     private fun ensureElementsCapacity() {
-        val elStackSize = if (elName != null) elName!!.size else 0
-        if ((depth + 1) >= elStackSize) {
+        val elStackSize = elName.size
+        if (depth + 1 >= elStackSize) {
             // we add at least one extra slot ...
             val newSize = (if (depth >= 7) 2 * depth else 8) + 2 // = lucky 7 + 1 //25
             if (TRACE_SIZING) {
                 println("TRACE_SIZING elStackSize $elStackSize ==> $newSize")
             }
             val needsCopying = elStackSize > 0
-            var arr: Array<String?>? = null
-            // resue arr local variable slot
-            arr = arrayOfNulls(newSize)
-            if (needsCopying) {
-                arraycopy(elName ?: arrayOf(), 0, arr, 0, elStackSize) // CHANGE
-            }
 
-            elName = arr
-            arr = arrayOfNulls(newSize)
-            if (needsCopying) arraycopy(elPrefix, 0, arr, 0, elStackSize)
-            elPrefix = arr
-            arr = arrayOfNulls(newSize)
-            if (needsCopying) arraycopy(elUri, 0, arr, 0, elStackSize)
-            elUri = arr
+            elName = elName.copyOf(newSize)
+            elPrefix = elPrefix.copyOf(newSize)
+            elUri = elUri.copyOf(newSize)
 
-            var iarr = IntArray(newSize)
-            if (needsCopying) {
-                arraycopy(elNamespaceCount.toTypedArray(), 0, iarr.toTypedArray(), 0, elStackSize)
+            elNamespaceCount = if (needsCopying) {
+                elNamespaceCount.copyOf(newSize)
             } else {
-                // special initialization
-                iarr[0] = 0
+                IntArray(newSize).also { it[0] = 0 }
             }
-            elNamespaceCount = iarr
 
-            // TODO: avoid using element raw name ...
-            iarr = IntArray(newSize)
-            if (needsCopying) {
-                arraycopy(elRawNameEnd.toTypedArray(), 0, iarr.toTypedArray(), 0, elStackSize)
-            }
-            elRawNameEnd = iarr
+            elRawNameEnd = if (needsCopying) elRawNameEnd.copyOf(newSize) else IntArray(newSize)
+            elRawNameLine = if (needsCopying) elRawNameLine.copyOf(newSize) else IntArray(newSize)
+            elRawName = if (needsCopying) elRawName.copyOf(newSize) else Array(newSize) { charArrayOf() }
 
-            iarr = IntArray(newSize)
-            if (needsCopying) {
-                arraycopy(elRawNameLine.toTypedArray(), 0, iarr.toTypedArray(), 0, elStackSize)
-            }
-            elRawNameLine = iarr
-
-            val carr = arrayOfNulls<CharArray>(newSize)
-            if (needsCopying) {
-                arraycopy(elRawName ?: arrayOf(), 0, carr, 0, elStackSize) // CHANGE
-            }
-            elRawName = carr
-            // arr = new String[newSize];
-            // if(needsCopying) System.arraycopy(elLocalName, 0, arr, 0, elStackSize);
-            // elLocalName = arr;
-            // arr = new String[newSize];
-            // if(needsCopying) System.arraycopy(elDefaultNs, 0, arr, 0, elStackSize);
-            // elDefaultNs = arr;
-            // int[] iarr = new int[newSize];
-            // if(needsCopying) System.arraycopy(elNsStackPos, 0, iarr, 0, elStackSize);
-            // for (int i = elStackSize; i < iarr.length; i++)
-            // {
-            // iarr[i] = (i > 0) ? -1 : 0;
-            // }
-            // elNsStackPos = iarr;
-            // assert depth < elName.length;
+            // assert depth < elName.size
         }
     }
 
     // attribute stack
-    private var attributeCount: Int = 0
+    private var attributeCount = 0
 
     private var attributeName: Array<String?>? = null
 
-    private var attributeNameHash: IntArray = intArrayOf()
+    private lateinit var attributeNameHash: IntArray
 
     // private int attributeNameStart[];
     // private int attributeNameEnd[];
-    private var attributePrefix: Array<String?> = arrayOfNulls(8)
+    private lateinit var attributePrefix: Array<String?>
 
-    private var attributeUri: Array<String?> = arrayOfNulls(8)
+    private lateinit var attributeUri: Array<String?>
 
-    private var attributeValue: Array<String?> = arrayOfNulls(8)
+    private lateinit var attributeValue: Array<String?>
 
     // private int attributeValueStart[];
     // private int attributeValueEnd[];
@@ -193,21 +167,20 @@ class MXParser : XmlPullParser {
                 println("TRACE_SIZING attrPosSize $attrPosSize ==> $newSize")
             }
             val needsCopying = attrPosSize > 0
-            var arr: Array<String?>? = null
+            var arr: Array<String?> = Array(newSize) { "" }
 
-            arr = arrayOfNulls(newSize)
-            if (needsCopying) arraycopy(attributeName ?: arrayOf(), 0, arr, 0, attrPosSize) // CHANGE
+            if (needsCopying) arraycopy(attributeName!!, 0, arr, 0, attrPosSize)
             attributeName = arr
 
-            arr = arrayOfNulls(newSize)
+            arr = Array(newSize) { "" }
             if (needsCopying) arraycopy(attributePrefix, 0, arr, 0, attrPosSize)
             attributePrefix = arr
 
-            arr = arrayOfNulls(newSize)
+            arr = Array(newSize) { "" }
             if (needsCopying) arraycopy(attributeUri, 0, arr, 0, attrPosSize)
             attributeUri = arr
 
-            arr = arrayOfNulls(newSize)
+            arr = Array(newSize) { "" }
             if (needsCopying) arraycopy(attributeValue, 0, arr, 0, attrPosSize)
             attributeValue = arr
 
@@ -216,8 +189,6 @@ class MXParser : XmlPullParser {
                 if (needsCopying) arraycopy(attributeNameHash.toTypedArray(), 0, iarr.toTypedArray(), 0, attrPosSize)
                 attributeNameHash = iarr
             }
-
-            arr = null
             // //assert attrUri.length > size
         }
     }
@@ -225,11 +196,11 @@ class MXParser : XmlPullParser {
     // namespace stack
     private var namespaceEnd = 0
 
-    private var namespacePrefix: Array<String?>? = null
+    private var namespacePrefix: Array<String>? = null
 
-    private var namespacePrefixHash: IntArray? = intArrayOf()
+    private var namespacePrefixHash: IntArray? = null
 
-    private var namespaceUri: Array<String?> = arrayOfNulls(8)
+    private lateinit var namespaceUri: Array<String>
 
     private fun ensureNamespacesCapacity(size: Int) {
         val namespaceSize = if (namespacePrefix != null) namespacePrefix!!.size else 0
@@ -238,10 +209,10 @@ class MXParser : XmlPullParser {
             if (TRACE_SIZING) {
                 println("TRACE_SIZING namespaceSize $namespaceSize ==> $newSize")
             }
-            val newNamespacePrefix = arrayOfNulls<String>(newSize)
-            val newNamespaceUri = arrayOfNulls<String>(newSize)
-            namespacePrefix?.let {
-                arraycopy(it, 0, newNamespacePrefix, 0, namespaceEnd)
+            val newNamespacePrefix = Array(newSize) { "" }
+            val newNamespaceUri = Array(newSize) { "" }
+            if (namespacePrefix != null) {
+                arraycopy(namespacePrefix!!, 0, newNamespacePrefix, 0, namespaceEnd)
                 arraycopy(namespaceUri, 0, newNamespaceUri, 0, namespaceEnd)
             }
             namespacePrefix = newNamespacePrefix
@@ -249,8 +220,8 @@ class MXParser : XmlPullParser {
 
             if (!allStringsInterned) {
                 val newNamespacePrefixHash = IntArray(newSize)
-                namespacePrefixHash?.let {
-                    arraycopy(it.toTypedArray(), 0, newNamespacePrefixHash.toTypedArray(), 0, namespaceEnd)
+                if (namespacePrefixHash != null) {
+                    arraycopy(namespacePrefixHash!!.toTypedArray(), 0, newNamespacePrefixHash.toTypedArray(), 0, namespaceEnd)
                 }
                 namespacePrefixHash = newNamespacePrefixHash
             }
@@ -262,20 +233,20 @@ class MXParser : XmlPullParser {
     // entity replacement stack
     private var entityEnd = 0
 
-    private var entityName: Array<String?> = emptyArray()
+    private var entityName: Array<String?>? = null
 
-    private var entityNameBuf: Array<CharArray?> = emptyArray()
+    private lateinit var entityNameBuf: Array<CharArray?>
 
-    private var entityReplacement: Array<String> = emptyArray()
+    private lateinit var entityReplacement: Array<String>
 
-    private var entityReplacementBuf: Array<CharArray> = emptyArray()
+    private var entityReplacementBuf: Array<CharArray?>? = null
 
     private var entityNameHash: IntArray? = null
 
     private val replacementMapTemplate: EntityReplacementMap?
 
     private fun ensureEntityCapacity() {
-        val entitySize = entityReplacementBuf.size
+        val entitySize = if (entityReplacementBuf != null) entityReplacementBuf!!.size else 0
         if (entityEnd >= entitySize) {
             val newSize = if (entityEnd > 7) 2 * entityEnd else 8 // = lucky 7 + 1 //25
             if (TRACE_SIZING) {
@@ -284,11 +255,13 @@ class MXParser : XmlPullParser {
             val newEntityName = arrayOfNulls<String>(newSize)
             val newEntityNameBuf = arrayOfNulls<CharArray>(newSize)
             val newEntityReplacement = Array(newSize) { "" }
-            val newEntityReplacementBuf = Array<CharArray>(newSize) { charArrayOf() }
-            arraycopy(entityName, 0, newEntityName, 0, entityEnd)
-            arraycopy(entityNameBuf, 0, newEntityNameBuf, 0, entityEnd)
-            arraycopy(entityReplacement, 0, newEntityReplacement, 0, entityEnd)
-            arraycopy(entityReplacementBuf, 0, newEntityReplacementBuf, 0, entityEnd)
+            val newEntityReplacementBuf: Array<CharArray?> = Array(newSize) { null }
+            if (entityName != null) {
+                arraycopy(entityName!!, 0, newEntityName, 0, entityEnd)
+                arraycopy(entityNameBuf, 0, newEntityNameBuf, 0, entityEnd)
+                arraycopy(entityReplacement, 0, newEntityReplacement, 0, entityEnd)
+                arraycopy(entityReplacementBuf!!, 0, newEntityReplacementBuf, 0, entityEnd)
+            }
             entityName = newEntityName
             entityNameBuf = newEntityNameBuf
             entityReplacement = newEntityReplacement
@@ -296,8 +269,8 @@ class MXParser : XmlPullParser {
 
             if (!allStringsInterned) {
                 val newEntityNameHash = IntArray(newSize)
-                entityNameHash?.let {
-                    arraycopy(it.toTypedArray(), 0, newEntityNameHash.toTypedArray(), 0, entityEnd)
+                if (entityNameHash != null) {
+                    arraycopy(entityNameHash!!.toTypedArray(), 0, newEntityNameHash.toTypedArray(), 0, entityEnd)
                 }
                 entityNameHash = newEntityNameHash
             }
@@ -306,15 +279,14 @@ class MXParser : XmlPullParser {
 
     private var reader: Reader? = null
 
-    override var inputEncoding: String? = null
-        private set
+    private var inputEncoding: String? = null
 
     private val bufLoadFactor = 95 // 99%
 
     // private int bufHardLimit; // only matters when expanding
     private val bufferLoadFactor = bufLoadFactor / 100f
 
-    private var buf = CharArray(256)
+    private var buf = CharArray(256) // TODO if free memory is big then use big buffer
 
     private var bufSoftLimit = (bufferLoadFactor * buf.size).toInt() // desirable size of buffer
 
@@ -332,7 +304,7 @@ class MXParser : XmlPullParser {
 
     private var posEnd = 0
 
-    private var pc = CharArray(64)
+    private var pc = CharArray(64) // TODO if free memory is big then use big buffer
 
     private var pcStart = 0
 
@@ -418,7 +390,7 @@ class MXParser : XmlPullParser {
     }
 
     constructor() {
-        replacementMapTemplate = null
+        replacementMapTemplate = EntityReplacementMap.defaultEntityReplacementMap
     }
 
     constructor(entityReplacementMap: EntityReplacementMap?) {
@@ -431,11 +403,11 @@ class MXParser : XmlPullParser {
 
             // This is a bit cheeky, since the EntityReplacementMap contains exact-sized arrays,
             // and elements are always added to the array, we can use the array from the template.
-            // Kids; dont do this at home.
+            // Kids; don't do this at home.
             entityName = replacementMapTemplate.entityName
             entityNameBuf = replacementMapTemplate.entityNameBuf
-            entityReplacement = replacementMapTemplate.entityReplacement
-            entityReplacementBuf = replacementMapTemplate.entityReplacementBuf
+            entityReplacement = replacementMapTemplate.entityReplacement.mapNotNull { it }.toTypedArray() // TODO - change from oiginal
+            entityReplacementBuf = replacementMapTemplate.entityReplacementBuf as Array<CharArray?>
             entityNameHash = replacementMapTemplate.entityNameHash
             entityEnd = length
         }
@@ -449,7 +421,7 @@ class MXParser : XmlPullParser {
      * @throws XmlPullParserException issue
      */
     @Throws(XmlPullParserException::class)
-    override fun setFeature(name: String?, state: Boolean) {
+    override fun setFeature(name: String, state: Boolean) {
         requireNotNull(name) { "feature name should not be null" }
         if (XmlPullParser.FEATURE_PROCESS_NAMESPACES == name) {
             if (eventType != XmlPullParser.START_DOCUMENT) throw XmlPullParserException(
@@ -484,7 +456,7 @@ class MXParser : XmlPullParser {
     /**
      * Unknown properties are **always** returned as false
      */
-    override fun getFeature(name: String?): Boolean {
+    override fun getFeature(name: String): Boolean {
         requireNotNull(name) { "feature name should not be null" }
         if (XmlPullParser.FEATURE_PROCESS_NAMESPACES == name) {
             return processNamespaces
@@ -504,15 +476,15 @@ class MXParser : XmlPullParser {
     }
 
     @Throws(XmlPullParserException::class)
-    override fun setProperty(name: String?, value: Any?) {
+    override fun setProperty(name: String, value: Any) {
         if (PROPERTY_LOCATION == name) {
-            location = value as String?
+            location = value as String
         } else {
             throw XmlPullParserException("unsupported property: '$name'")
         }
     }
 
-    override fun getProperty(name: String?): Any? {
+    override fun getProperty(name: String): Any? {
         requireNotNull(name) { "property name should not be null" }
         if (PROPERTY_XMLDECL_VERSION == name) {
             return xmlDeclVersion
@@ -527,13 +499,14 @@ class MXParser : XmlPullParser {
     }
 
     @Throws(XmlPullParserException::class)
-    override fun setInput(input: Reader?) {
+    override fun setInput(`in`: Reader) {
         reset()
-        reader = input
+        reader = `in`
     }
 
     @Throws(XmlPullParserException::class)
     override fun setInput(inputStream: InputStream, inputEncoding: String?) {
+        requireNotNull(inputStream) { "input stream can not be null" }
         val reader: Reader
         try {
             if (inputEncoding != null) {
@@ -541,12 +514,8 @@ class MXParser : XmlPullParser {
             } else {
                 reader = XmlStreamReader(inputStream, false)
             }
-        } catch (une: Exception) { // TODO catch reader exception
-            throw XmlPullParserException(
-                "could not create reader for encoding $inputEncoding : $une", this, une
-            )
         } catch (e: XmlStreamReaderException) {
-//            if ("UTF-8" == e.getBomEncoding()) {
+//            if ("UTF-8" == e.getBomEncoding()) { // TODO
 //                throw XmlPullParserException(
 //                    "UTF-8 BOM plus xml decl of " + e.getXmlEncoding() + " is incompatible", this, e
 //                )
@@ -556,7 +525,11 @@ class MXParser : XmlPullParser {
 //                    "UTF-16 BOM in a " + e.getXmlEncoding() + " encoded file is incompatible", this, e
 //                )
 //            }
-            throw XmlPullParserException("could not create reader : $e", this, e) // TODO
+            throw XmlPullParserException("could not create reader : $e", this, e)
+        } catch (une: Exception) { // TODO catch UnsupportedEncodingException
+            throw XmlPullParserException(
+                "could not create reader for encoding $inputEncoding : $une", this, une
+            )
         } catch (e: IOException) {
             throw XmlPullParserException("could not create reader : $e", this, e)
         }
@@ -565,18 +538,20 @@ class MXParser : XmlPullParser {
         this.inputEncoding = inputEncoding
     }
 
-    @Throws(XmlPullParserException::class)
-    override fun defineEntityReplacementText(entityName: String?, replacementText: String?) {
-        // throw new XmlPullParserException("not allowed");
-        requireNotNull(entityName) { "entity name must not be null" }
-        requireNotNull(replacementText) { "entity replacement text must not be null" }
+    override fun getInputEncoding(): String {
+        return inputEncoding!!
+    }
 
-        var replacementTextCopy: String = replacementText
-        if (!replacementTextCopy.startsWith("&#") && this.entityName != null && replacementTextCopy.length > 1) {
-            val tmp = replacementTextCopy.substring(1, replacementTextCopy.length - 1)
+    @Throws(XmlPullParserException::class)
+    override fun defineEntityReplacementText(entityName: String, replacementText: String) {
+        // throw new XmlPullParserException("not allowed");
+
+        var replacementText = replacementText
+        if (!replacementText.startsWith("&#") && this.entityName != null && replacementText.length > 1) {
+            val tmp = replacementText.substring(1, replacementText.length - 1)
             for (i in this.entityName!!.indices) {
                 if (this.entityName!![i] != null && this.entityName!![i] == tmp) {
-                    replacementTextCopy = entityReplacement[i]
+                    replacementText = entityReplacement[i]
                 }
             }
         }
@@ -589,8 +564,8 @@ class MXParser : XmlPullParser {
         this.entityName!![entityEnd] = newString(entityNameCharData, 0, entityName.length)
         entityNameBuf[entityEnd] = entityNameCharData
 
-        entityReplacement[entityEnd] = replacementTextCopy
-        entityReplacementBuf!![entityEnd] = replacementTextCopy.toCharArray()
+        entityReplacement[entityEnd] = replacementText
+        entityReplacementBuf!![entityEnd] = replacementText.toCharArray()
         if (!allStringsInterned) {
             entityNameHash!![entityEnd] = fastHash(entityNameBuf[entityEnd], 0, entityNameBuf[entityEnd]!!.size)
         }
@@ -611,7 +586,7 @@ class MXParser : XmlPullParser {
     }
 
     @Throws(XmlPullParserException::class)
-    override fun getNamespacePrefix(pos: Int): String? {
+    override fun getNamespacePrefix(pos: Int): String {
         // int end = eventType == END_TAG ? elNamespaceCount[ depth + 1 ] : namespaceEnd;
         // if(pos < end) {
 
@@ -625,7 +600,7 @@ class MXParser : XmlPullParser {
     }
 
     @Throws(XmlPullParserException::class)
-    override fun getNamespaceUri(pos: Int): String? {
+    override fun getNamespaceUri(pos: Int): String {
         // int end = eventType == END_TAG ? elNamespaceCount[ depth + 1 ] : namespaceEnd;
         // if(pos < end) {
         if (pos < namespaceEnd) {
@@ -661,46 +636,44 @@ class MXParser : XmlPullParser {
         return null
     }
 
-    override val positionDescription: String
-        /**
-         * Return string describing current position of parsers as text 'STATE [seen %s...] @line:column'.
-         */
-        get() {
-            var fragment: String? = null
-            if (posStart <= pos) {
-                val start = findFragment(0, buf, posStart, pos)
-                // System.err.println("start="+start);
-                if (start < pos) {
-                    fragment = buf.concatToString(start, start + (pos - start))
-                }
-                if (bufAbsoluteStart > 0 || start > 0) fragment = "...$fragment"
+    /**
+     * Return string describing current position of parsers as text 'STATE [seen %s...] @line:column'.
+     */
+    override fun getPositionDescription(): String {
+        var fragment: String? = null
+        if (posStart <= pos) {
+            val start = findFragment(0, buf, posStart, pos)
+            // System.err.println("start="+start);
+            if (start < pos) {
+                fragment = buf.concatToString(start, start + (pos - start))
             }
-            // return " at line "+tokenizerPosRow
-            // +" and column "+(tokenizerPosCol-1)
-            // +(fragment != null ? " seen "+printable(fragment)+"..." : "");
-            return (" " + XmlPullParser.getTypeOf(eventType) + (if (fragment != null) " seen " + printable(fragment) + "..." else "") + " "
-                    + (if (location != null) location else "") + "@" + lineNumber + ":" + columnNumber)
+            if (bufAbsoluteStart > 0 || start > 0) fragment = "...$fragment"
         }
+        // return " at line "+tokenizerPosRow
+        // +" and column "+(tokenizerPosCol-1)
+        // +(fragment != null ? " seen "+printable(fragment)+"..." : "");
+        return (" " + XmlPullParser.TYPES.get(eventType) + (if (fragment != null) " seen " + printable(fragment) + "..." else "") + " "
+                + (if (location != null) location else "") + "@" + lineNumber + ":" + columnNumber)
+    }
 
-    override val isWhitespace: Boolean
-        get() {
-            if (eventType == XmlPullParser.TEXT || eventType == XmlPullParser.CDSECT) {
-                if (usePC) {
-                    for (i in pcStart..<pcEnd) {
-                        if (!isS(pc[i])) return false
-                    }
-                    return true
-                } else {
-                    for (i in posStart..<posEnd) {
-                        if (!isS(buf[i])) return false
-                    }
-                    return true
+    override fun isWhitespace(): Boolean {
+        if (eventType == XmlPullParser.TEXT || eventType == XmlPullParser.CDSECT) {
+            if (usePC) {
+                for (i in pcStart..<pcEnd) {
+                    if (!isS(pc[i])) return false
                 }
-            } else if (eventType == XmlPullParser.IGNORABLE_WHITESPACE) {
+                return true
+            } else {
+                for (i in posStart..<posEnd) {
+                    if (!isS(buf[i])) return false
+                }
                 return true
             }
-            throw XmlPullParserException("no content available to check for whitespaces")
+        } else if (eventType == XmlPullParser.IGNORABLE_WHITESPACE) {
+            return true
         }
+        throw XmlPullParserException("no content available to check for whitespaces")
+    }
 
     override fun getText(): String? {
         if (eventType == XmlPullParser.START_DOCUMENT || eventType == XmlPullParser.END_DOCUMENT) {
@@ -723,9 +696,7 @@ class MXParser : XmlPullParser {
         return text
     }
 
-    override fun getTextCharacters(holderForStartAndLength: IntArray?): CharArray? {
-        requireNotNull(holderForStartAndLength) { "holderForStartAndLength can not be null" }
-
+    override fun getTextCharacters(holderForStartAndLength: IntArray): CharArray? {
         if (eventType == XmlPullParser.TEXT) {
             if (usePC) {
                 holderForStartAndLength[0] = pcStart
@@ -759,69 +730,67 @@ class MXParser : XmlPullParser {
         // return cb;
     }
 
-    override val namespace: String?
-        get() {
-            if (eventType == XmlPullParser.START_TAG) {
-                // return processNamespaces ? elUri[ depth - 1 ] : NO_NAMESPACE;
-                return if (processNamespaces) elUri[depth] else XmlPullParser.NO_NAMESPACE
-            } else if (eventType == XmlPullParser.END_TAG) {
-                return if (processNamespaces) elUri[depth] else XmlPullParser.NO_NAMESPACE
+    override fun getNamespace(): String? {
+        if (eventType == XmlPullParser.START_TAG) {
+            // return processNamespaces ? elUri[ depth - 1 ] : NO_NAMESPACE;
+            return if (processNamespaces) elUri[depth] else XmlPullParser.NO_NAMESPACE
+        } else if (eventType == XmlPullParser.END_TAG) {
+            return if (processNamespaces) elUri[depth] else XmlPullParser.NO_NAMESPACE
+        }
+        return null
+        // String prefix = elPrefix[ maxDepth ];
+        // if(prefix != null) {
+        // for( int i = namespaceEnd -1; i >= 0; i--) {
+        // if( prefix.equals( namespacePrefix[ i ] ) ) {
+        // return namespaceUri[ i ];
+        // }
+        // }
+        // } else {
+        // for( int i = namespaceEnd -1; i >= 0; i--) {
+        // if( namespacePrefix[ i ] == null ) {
+        // return namespaceUri[ i ];
+        // }
+        // }
+        //
+        // }
+        // return "";
+    }
+
+
+    override fun getName(): String? {
+        if (eventType == XmlPullParser.START_TAG) {
+            // return elName!![ depth - 1 ] ;
+            return elName!![depth]
+        } else if (eventType == XmlPullParser.END_TAG) {
+            return elName!![depth]
+        } else if (eventType == XmlPullParser.ENTITY_REF) {
+            if (entityRefName == null) {
+                entityRefName = newString(buf, posStart, posEnd - posStart)
             }
+            return entityRefName
+        } else {
             return null
-            // String prefix = elPrefix[ maxDepth ];
-            // if(prefix != null) {
-            // for( int i = namespaceEnd -1; i >= 0; i--) {
-            // if( prefix.equals( namespacePrefix[ i ] ) ) {
-            // return namespaceUri[ i ];
-            // }
-            // }
-            // } else {
-            // for( int i = namespaceEnd -1; i >= 0; i--) {
-            // if( namespacePrefix[ i ] == null ) {
-            // return namespaceUri[ i ];
-            // }
-            // }
-            //
-            // }
-            // return "";
         }
+    }
 
-    override val name: String?
-        get() {
-            if (eventType == XmlPullParser.START_TAG) {
-                // return elName[ depth - 1 ] ;
-                return elName!![depth]
-            } else if (eventType == XmlPullParser.END_TAG) {
-                return elName!![depth]
-            } else if (eventType == XmlPullParser.ENTITY_REF) {
-                if (entityRefName == null) {
-                    entityRefName = newString(buf, posStart, posEnd - posStart)
-                }
-                return entityRefName
-            } else {
-                return null
-            }
+    override fun getPrefix(): String? {
+        if (eventType == XmlPullParser.START_TAG) {
+            // return elPrefix[ depth - 1 ] ;
+            return elPrefix[depth]
+        } else if (eventType == XmlPullParser.END_TAG) {
+            return elPrefix[depth]
         }
+        return null
+        // if(eventType != START_TAG && eventType != END_TAG) return null;
+        // int maxDepth = eventType == END_TAG ? depth : depth - 1;
+        // return elPrefix[ maxDepth ];
+    }
 
-    override val prefix: String?
-        get() {
-            if (eventType == XmlPullParser.START_TAG) {
-                // return elPrefix[ depth - 1 ] ;
-                return elPrefix[depth]
-            } else if (eventType == XmlPullParser.END_TAG) {
-                return elPrefix[depth]
-            }
-            return null
-            // if(eventType != START_TAG && eventType != END_TAG) return null;
-            // int maxDepth = eventType == END_TAG ? depth : depth - 1;
-            // return elPrefix[ maxDepth ];
-        }
-
-    override var isEmptyElementTag: Boolean =
-        if (eventType != XmlPullParser.START_TAG) throw XmlPullParserException("parser must be on START_TAG to check for empty element", this, null) else {
-
-            emptyElementTag
-        }
+    @Throws(XmlPullParserException::class)
+    override fun isEmptyElementTag(): Boolean {
+        if (eventType != XmlPullParser.START_TAG) throw XmlPullParserException("parser must be on START_TAG to check for empty element", this, null)
+        return emptyElementTag
+    }
 
     override fun getAttributeCount(): Int {
         if (eventType != XmlPullParser.START_TAG) return -1
@@ -854,7 +823,7 @@ class MXParser : XmlPullParser {
         return attributePrefix[index]
     }
 
-    override fun getAttributeType(index: Int): String? {
+    override fun getAttributeType(index: Int): String {
         if (eventType != XmlPullParser.START_TAG) throw IndexOutOfBoundsException("only START_TAG can have attributes")
         if (index < 0 || index >= attributeCount) throw IndexOutOfBoundsException(
             "attribute position must be 0.." + (attributeCount - 1) + " and not " + index
@@ -878,9 +847,9 @@ class MXParser : XmlPullParser {
         return attributeValue[index]
     }
 
-    override fun getAttributeValue(namespace: String?, name: String?): String? {
-        var namespace = namespace
-        if (eventType != XmlPullParser.START_TAG) throw IndexOutOfBoundsException("only START_TAG can have attributes$positionDescription")
+    override fun getAttributeValue(namespace: String, name: String): String? {
+        var namespace: String? = namespace
+        if (eventType != XmlPullParser.START_TAG) throw IndexOutOfBoundsException("only START_TAG can have attributes" + getPositionDescription())
         requireNotNull(name) { "attribute name can not be null" }
         // TODO make check if namespace is interned!!! etc. for names!!!
         if (processNamespaces) {
@@ -915,29 +884,29 @@ class MXParser : XmlPullParser {
         if (!processNamespaces && namespace != null) {
             throw XmlPullParserException(
                 ("processing namespaces must be enabled on parser (or factory)"
-                        + " to have possible namespaces declared on elements" + (" (position:$positionDescription")
+                        + " to have possible namespaces declared on elements" + (" (position:" + getPositionDescription())
                         + ")")
             )
         }
-        if (type != eventType || (namespace != null && namespace != namespace)
-            || (name != null && name != name)
+        if (type != eventType || (namespace != null && namespace != this.getNamespace())
+            || (name != null && name != this.getName())
         ) {
             throw XmlPullParserException(
-                ("expected event " + XmlPullParser.getTypeOf(type) // TODO what is it?!
+                ("expected event " + XmlPullParser.TYPES.get(type)
                         + (if (name != null) " with name '$name'" else "")
                         + (if (namespace != null && name != null) " and" else "")
                         + (if (namespace != null) " with namespace '$namespace'" else "") + " but got"
-                        + (if (type != eventType) " " + XmlPullParser.getTypeOf(eventType) else "") // TODO what is it?!
-                        + (if (name != null && name != null && (name != name)) " name '$name'" else "")
-                        + (if (namespace != null && name != null && name != null && (name != name) && namespace != null && (namespace != namespace))
+                        + (if (type != eventType) " " + XmlPullParser.TYPES.get(eventType) else "")
+                        + (if (name != null && this.getName() != null && (name != this.getName())) " name '" + this.getName() + "'" else "")
+                        + (if (namespace != null && name != null && this.getName() != null && (name != this.getName()) && this.getNamespace() != null && (namespace != this.getNamespace()))
                     " and"
                 else
                     "")
-                        + (if (namespace != null && namespace != null && (namespace != namespace))
-                    " namespace '$namespace'"
+                        + (if (namespace != null && this.getNamespace() != null && (namespace != this.getNamespace()))
+                    " namespace '" + this.getNamespace() + "'"
                 else
                     "")
-                        + (" (position:$positionDescription") + ")")
+                        + (" (position:" + getPositionDescription()) + ")")
             )
         }
     }
@@ -971,7 +940,7 @@ class MXParser : XmlPullParser {
     // return result;
     // }
     @Throws(XmlPullParserException::class, IOException::class)
-    override fun nextText(): String? {
+    override fun nextText(): String {
         // String result = null;
         // boolean onStartTag = false;
         // if(eventType == START_TAG) {
@@ -997,14 +966,14 @@ class MXParser : XmlPullParser {
         }
         var eventType = next()
         if (eventType == XmlPullParser.TEXT) {
-            val result = text
+            val result = getText()
             eventType = next()
             if (eventType != XmlPullParser.END_TAG) {
                 throw XmlPullParserException(
-                    "TEXT must be immediately followed by END_TAG and not " + XmlPullParser.getTypeOf(eventType), this, null
+                    "TEXT must be immediately followed by END_TAG and not " + XmlPullParser.TYPES.get(this.eventType), this, null
                 )
             }
-            return result
+            return result!!
         } else if (eventType == XmlPullParser.END_TAG) {
             return ""
         } else {
@@ -1015,11 +984,11 @@ class MXParser : XmlPullParser {
     @Throws(XmlPullParserException::class, IOException::class)
     override fun nextTag(): Int {
         next()
-        if (eventType == XmlPullParser.TEXT && isWhitespace) { // skip whitespace
+        if (eventType == XmlPullParser.TEXT && isWhitespace()) { // skip whitespace
             next()
         }
         if (eventType != XmlPullParser.START_TAG && eventType != XmlPullParser.END_TAG) {
-            throw XmlPullParserException("expected START_TAG or END_TAG not " + XmlPullParser.getTypeOf(eventType), this, null)
+            throw XmlPullParserException("expected START_TAG or END_TAG not " + XmlPullParser.TYPES.get(eventType), this, null)
         }
         return eventType
     }
@@ -1603,8 +1572,8 @@ class MXParser : XmlPullParser {
         val cbuf = elRawName!![depth]
         if (elRawNameEnd[depth] != len) {
             // construct strings for exception
-            val startname = cbuf!!.concatToString(0, 0 + elRawNameEnd[depth]) // CHANGE
-            val endname = buf.concatToString(off, off + len) // CHANGE
+            val startname = cbuf!!.concatToString(0, 0 + elRawNameEnd[depth])
+            val endname = buf.concatToString(off, off + len)
             throw XmlPullParserException(
                 ("end tag name </" + endname + "> must match start tag name <" + startname + ">" + " from line "
                         + elRawNameLine[depth]),
@@ -1615,9 +1584,9 @@ class MXParser : XmlPullParser {
         for (i in 0..<len) {
             if (buf[off++] != cbuf!![i]) {
                 // construct strings for exception
-                val startname = cbuf.concatToString(0, 0 + len) // CHANGE
+                val startname = cbuf.concatToString(0, 0 + len)
                 val offset = off - i - 1
-                val endname = buf.concatToString(offset, offset + len) // CHANGE
+                val endname = buf.concatToString(offset, offset + len)
                 throw XmlPullParserException(
                     ("end tag name </" + endname + "> must be the same as start tag <" + startname + ">"
                             + " from line " + elRawNameLine[depth]),
@@ -1682,11 +1651,9 @@ class MXParser : XmlPullParser {
         if (elRawName!![depth] == null || elRawName!![depth]!!.size < elLen) {
             elRawName!![depth] = CharArray(2 * elLen)
         }
-        arraycopy(buf.toTypedArray(), nameStart - bufAbsoluteStart, elRawName!![depth]!!.toTypedArray(), 0, elLen) // CHANGE
+        arraycopy(buf.toTypedArray(), nameStart - bufAbsoluteStart, elRawName!![depth]!!.toTypedArray(), 0, elLen)
         elRawNameEnd[depth] = elLen
         elRawNameLine[depth] = lineNumber
-
-        var name: String? = null
 
         // work on prefixes and namespace URI
         var prefix: String? = null
@@ -1699,16 +1666,13 @@ class MXParser : XmlPullParser {
                     colonPos + 1 - bufAbsoluteStart,  // (pos -1) - (colonPos + 1));
                     pos - 2 - (colonPos - bufAbsoluteStart)
                 )
-                name = elName!![depth]
             } else {
                 elPrefix[depth] = null
                 prefix = elPrefix[depth]
                 elName!![depth] = newString(buf, nameStart - bufAbsoluteStart, elLen)
-                name = elName!![depth]
             }
         } else {
             elName!![depth] = newString(buf, nameStart - bufAbsoluteStart, elLen)
-            name = elName!![depth]
         }
 
         while (true) {
@@ -1917,7 +1881,6 @@ class MXParser : XmlPullParser {
             attributeName!![attributeCount] =
                 newString(buf, nameStart - bufAbsoluteStart, pos - 1 - (nameStart - bufAbsoluteStart))
             name = attributeName!![attributeCount]
-            /** assert name != null; */
             if (!allStringsInterned) {
                 attributeNameHash[attributeCount] = name.hashCode()
             }
@@ -2005,14 +1968,14 @@ class MXParser : XmlPullParser {
                     )
                 }
                 // declare new namespace
-                namespacePrefix!![namespaceEnd] = name
+                namespacePrefix!![namespaceEnd] = name!!
                 if (!allStringsInterned) {
                     namespacePrefixHash!![namespaceEnd] = name.hashCode()
                     prefixHash = namespacePrefixHash!![namespaceEnd]
                 }
             } else {
                 // declare new default namespace...
-                namespacePrefix!![namespaceEnd] = null // ""; //null; //TODO check FIXME Alek
+                namespacePrefix!![namespaceEnd] = "" // ""; //null; //TODO check FIXME Alek
                 if (!allStringsInterned) {
                     namespacePrefixHash!![namespaceEnd] = -1
                     prefixHash = namespacePrefixHash!![namespaceEnd]
@@ -2122,7 +2085,7 @@ class MXParser : XmlPullParser {
                 val codePoint: Int = sb.toString().toInt(if (isHex) 16 else 10)
                 isValidCodePoint = isValidCodePoint(codePoint)
                 if (isValidCodePoint) {
-                    resolvedEntityRefCharBuf = Char.toChars(codePoint)
+                    resolvedEntityRefCharBuf = CodePoints.toChars(codePoint)
                 }
             } catch (e: IllegalArgumentException) {
                 isValidCodePoint = false
@@ -2266,6 +2229,7 @@ class MXParser : XmlPullParser {
         return BUF_NOT_RESOLVED
     }
 
+    @OptIn(ExperimentalStdlibApi::class)
     @Throws(XmlPullParserException::class, IOException::class)
     private fun parseComment() {
         // implements XML 1.0 Section 2.5 Comments
@@ -2289,9 +2253,9 @@ class MXParser : XmlPullParser {
                 cch = more()
                 val ch: Int
                 val cch2: Char
-                if (cch.isHighSurrogate()) {
+                if (Character.isHighSurrogate(cch)) {
                     cch2 = more()
-                    ch = CodePoints.toCodePoint(cch, cch2)
+                    ch = Character.toCodePoint(cch, cch2)
                 } else {
                     cch2 = 0.toChar()
                     ch = cch.code
@@ -2318,7 +2282,7 @@ class MXParser : XmlPullParser {
                     seenDash = false
                 } else {
                     throw XmlPullParserException(
-                        "Illegal character 0x" + ch.toString(16) + " found in comment", this, null
+                        "Illegal character 0x" + ch.toHexString() + " found in comment", this, null
                     )
                 }
                 if (normalizeIgnorableWS) {
@@ -2980,7 +2944,7 @@ class MXParser : XmlPullParser {
                 if (TRACE_SIZING) println(
                     ("TRACE_SIZING fillBuf() compacting " + bufStart + " bufEnd=" + bufEnd + " pos="
                             + pos + " posStart=" + posStart + " posEnd=" + posEnd + " buf first 100 chars:"
-                            + buf.concatToString(bufStart, bufStart + min((bufEnd - bufStart).toDouble(), 100.0).toInt()))
+                            + buf.concatToString(bufStart, bufStart + min(bufEnd - bufStart, 100)))
                 )
             } else {
                 val newSize = 2 * buf.size
@@ -3003,17 +2967,17 @@ class MXParser : XmlPullParser {
             if (TRACE_SIZING) println(
                 ("TRACE_SIZING fillBuf() after bufEnd=" + bufEnd + " pos=" + pos + " posStart="
                         + posStart + " posEnd=" + posEnd + " buf first 100 chars:"
-                        + buf.concatToString(0, 0 + min(bufEnd.toDouble(), 100.0).toInt()))
+                        + buf.concatToString(0, 0 + min(bufEnd, 100)))
             )
         }
         // at least one character must be read or error
-        val len = min((buf.size - bufEnd).toDouble(), READ_CHUNK_SIZE.toDouble()).toInt()
-        val ret: Int = reader!!.read(buf, bufEnd, len) // FIXME
+        val len = min(buf.size - bufEnd, READ_CHUNK_SIZE)
+        val ret: Int = reader!!.read(buf, bufEnd, len)
         if (ret > 0) {
             bufEnd += ret
             if (TRACE_SIZING) println(
                 ("TRACE_SIZING fillBuf() after filling in buffer" + " buf first 100 chars:"
-                        + buf.concatToString(0, 0 + min(bufEnd.toDouble(), 100.0).toInt()))
+                        + buf.concatToString(0, 0 + min(bufEnd, 100)))
             )
 
             return
@@ -3074,7 +3038,7 @@ class MXParser : XmlPullParser {
                                         .append(">")
                                     expectedTagStack.append(" from line ").append(elRawNameLine[i])
                                 } else {
-                                    val tagName = elRawName!![i]!!.concatToString(0, 0 + elRawNameEnd[i]) // FIXME
+                                    val tagName = elRawName!![i]!!.concatToString(0, 0 + elRawNameEnd[i])
                                     expectedTagStack
                                         .append(" start tag <")
                                         .append(tagName)
@@ -3086,7 +3050,7 @@ class MXParser : XmlPullParser {
                         }
                     }
                     throw EOFException(
-                        "no more data available" + expectedTagStack.toString() + positionDescription
+                        "no more data available" + expectedTagStack.toString() + getPositionDescription()
                     )
                 }
             }
@@ -3100,7 +3064,7 @@ class MXParser : XmlPullParser {
         if (pos >= bufEnd) {
             fillBuf()
             // this return value should be ignored as it is used in epilog parsing ...
-            if (reachedEnd) throw EOFException("no more data available$positionDescription")
+            if (reachedEnd) throw EOFException("no more data available" + getPositionDescription())
         }
         val ch = buf[pos++]
         // line/columnNumber
@@ -3440,9 +3404,7 @@ class MXParser : XmlPullParser {
             return s
         }
     }
-}
-
-/*
+} /*
  * Indiana University Extreme! Lab Software License, Version 1.2 Copyright (C) 2003 The Trustees of Indiana University.
  * All rights reserved. Redistribution and use in source and binary forms, with or without modification, are permitted
  * provided that the following conditions are met: 1) All redistributions of source code must retain the above copyright

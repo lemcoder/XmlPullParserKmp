@@ -1,11 +1,14 @@
 [versions]
 agp = "8.5.0"
 kotlin = "2.1.10"
+fleeksoft-io = "0.0.3"
 android-minSdk = "24"
 android-compileSdk = "34"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+fleeksoft-io-core = { module = "com.fleeksoft.io:io-core", version.ref = "fleeksoft-io" }
+fleeksoft-io-io = { module = "com.fleeksoft.io:io", version.ref = "fleeksoft-io" }
 
 [plugins]
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
