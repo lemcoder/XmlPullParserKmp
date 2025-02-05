@@ -56,12 +56,6 @@ class EntityReplacementMap(replacements: Array<Array<String>>) {
         ++entityEnd
     }
 
-    init {
-        for (replacement in replacements) {
-            defineEntityReplacementText(replacement[0], replacement[1])
-        }
-    }
-
     companion object {
         /**
          * simplistic implementation of hash function that has **constant** time to compute - so it also means
