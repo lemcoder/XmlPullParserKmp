@@ -2998,7 +2998,7 @@ class MXParser : XmlPullParser {
                 } else {
                     val expectedTagStack: StringBuilder = StringBuilder()
                     if (depth > 0) {
-                        if (elRawName == null || elRawName!![depth] == null) {
+                        if (elRawName == null || depth >= elRawName.size || elRawName!![depth] == null || elRawName!![depth]?.size == 0) {
                             val offset = posStart + 1
                             val tagName = buf.concatToString(offset, offset + (pos - posStart - 1))
                             expectedTagStack
