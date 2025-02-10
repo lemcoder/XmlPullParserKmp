@@ -186,7 +186,7 @@ class MXParser : XmlPullParser {
 
             if (!allStringsInterned) {
                 val iarr = IntArray(newSize)
-                if (needsCopying) arraycopy(attributeNameHash.toTypedArray(), 0, iarr.toTypedArray(), 0, attrPosSize)
+                if (needsCopying) attributeNameHash.copyInto(iarr, destinationOffset = 0, startIndex = 0, endIndex = attrPosSize)
                 attributeNameHash = iarr
             }
             // //assert attrUri.length > size
@@ -221,7 +221,7 @@ class MXParser : XmlPullParser {
             if (!allStringsInterned) {
                 val newNamespacePrefixHash = IntArray(newSize)
                 if (namespacePrefixHash != null) {
-                    arraycopy(namespacePrefixHash!!.toTypedArray(), 0, newNamespacePrefixHash.toTypedArray(), 0, namespaceEnd)
+                    namespacePrefixHash?.copyInto(newNamespacePrefixHash, destinationOffset = 0, startIndex = 0, endIndex = namespaceEnd)
                 }
                 namespacePrefixHash = newNamespacePrefixHash
             }
@@ -237,7 +237,7 @@ class MXParser : XmlPullParser {
 
     private lateinit var entityNameBuf: Array<CharArray?>
 
-    private lateinit var entityReplacement: Array<String>
+    private lateinit var entityReplacement: Array<String?>
 
     private var entityReplacementBuf: Array<CharArray?>? = null
 
@@ -254,7 +254,7 @@ class MXParser : XmlPullParser {
             }
             val newEntityName = arrayOfNulls<String>(newSize)
             val newEntityNameBuf = arrayOfNulls<CharArray>(newSize)
-            val newEntityReplacement = Array(newSize) { "" }
+            val newEntityReplacement = Array<String?>(newSize) { "" }
             val newEntityReplacementBuf: Array<CharArray?> = Array(newSize) { null }
             if (entityName != null) {
                 arraycopy(entityName!!, 0, newEntityName, 0, entityEnd)
@@ -270,7 +270,7 @@ class MXParser : XmlPullParser {
             if (!allStringsInterned) {
                 val newEntityNameHash = IntArray(newSize)
                 if (entityNameHash != null) {
-                    arraycopy(entityNameHash!!.toTypedArray(), 0, newEntityNameHash.toTypedArray(), 0, entityEnd)
+                    entityNameHash?.copyInto(newEntityNameHash, 0, 0, entityEnd)
                 }
                 entityNameHash = newEntityNameHash
             }
@@ -406,7 +406,7 @@ class MXParser : XmlPullParser {
             // Kids; don't do this at home.
             entityName = replacementMapTemplate.entityName
             entityNameBuf = replacementMapTemplate.entityNameBuf
-            entityReplacement = replacementMapTemplate.entityReplacement.mapNotNull { it }.toTypedArray() // TODO - change from oiginal
+            entityReplacement = replacementMapTemplate.entityReplacement
             entityReplacementBuf = replacementMapTemplate.entityReplacementBuf as Array<CharArray?>
             entityNameHash = replacementMapTemplate.entityNameHash
             entityEnd = length
@@ -551,7 +551,7 @@ class MXParser : XmlPullParser {
             val tmp = replacementText.substring(1, replacementText.length - 1)
             for (i in this.entityName!!.indices) {
                 if (this.entityName!![i] != null && this.entityName!![i] == tmp) {
-                    replacementText = entityReplacement[i]
+                    replacementText = entityReplacement[i]!!
                 }
             }
         }
@@ -2946,7 +2946,7 @@ class MXParser : XmlPullParser {
             if (compact) {
                 // TODO: look on trashing
                 // //assert bufStart > 0
-                arraycopy(buf.toTypedArray(), bufStart, buf.toTypedArray(), 0, bufEnd - bufStart)
+                buf.copyInto(buf, destinationOffset = 0, startIndex = bufStart, endIndex = bufEnd)
                 if (TRACE_SIZING) println(
                     ("TRACE_SIZING fillBuf() compacting " + bufStart + " bufEnd=" + bufEnd + " pos="
                             + pos + " posStart=" + posStart + " posEnd=" + posEnd + " buf first 100 chars:"
@@ -2956,7 +2956,7 @@ class MXParser : XmlPullParser {
                 val newSize = 2 * buf.size
                 val newBuf = CharArray(newSize)
                 if (TRACE_SIZING) println("TRACE_SIZING fillBuf() " + buf.size + " => " + newSize)
-                arraycopy(buf.toTypedArray(), bufStart, newBuf.toTypedArray(), 0, bufEnd - bufStart)
+                buf.copyInto(newBuf, destinationOffset = 0, startIndex = bufStart, endIndex = bufEnd)
                 buf = newBuf
                 if (bufLoadFactor > 0) {
                     // Include a fix for
@@ -3098,7 +3098,7 @@ class MXParser : XmlPullParser {
         val newSize = if (end > READ_CHUNK_SIZE) 2 * end else 2 * READ_CHUNK_SIZE
         val newPC = CharArray(newSize)
         if (TRACE_SIZING) println("TRACE_SIZING ensurePC() " + pc.size + " ==> " + newSize + " end=" + end)
-        arraycopy(pc.toTypedArray(), 0, newPC.toTypedArray(), 0, pcEnd)
+        pc.copyInto(newPC, destinationOffset = 0, startIndex = 0, endIndex = pcEnd)
         pc = newPC
         // assert end < pc.length;
     }
@@ -3111,7 +3111,7 @@ class MXParser : XmlPullParser {
         if (newEnd >= pc.size) ensurePC(newEnd) // add 1 for extra space for one char
 
         // assert newEnd < pc.length;
-        arraycopy(buf.toTypedArray(), posStart, pc.toTypedArray(), pcEnd, len)
+        buf.copyInto(pc, destinationOffset = pcEnd, startIndex = posStart, endIndex = posStart + len)
         pcEnd += len
         usePC = true
     }
