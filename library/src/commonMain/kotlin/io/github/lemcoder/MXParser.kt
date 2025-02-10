@@ -1651,7 +1651,13 @@ class MXParser : XmlPullParser {
         if (elRawName!![depth] == null || elRawName!![depth]!!.size < elLen) {
             elRawName!![depth] = CharArray(2 * elLen)
         }
-        arraycopy(buf.toTypedArray(), nameStart - bufAbsoluteStart, elRawName!![depth]!!.toTypedArray(), 0, elLen)
+        //arraycopy(buf, nameStart - bufAbsoluteStart, elRawName!![depth]!!, 0, elLen)
+        buf.copyInto(
+            destination = elRawName!![depth]!!,
+            destinationOffset = 0,
+            startIndex = nameStart - bufAbsoluteStart,
+            endIndex = nameStart - bufAbsoluteStart + elLen
+        )
         elRawNameEnd[depth] = elLen
         elRawNameLine[depth] = lineNumber
 
