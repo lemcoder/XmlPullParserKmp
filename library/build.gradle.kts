@@ -42,6 +42,9 @@ kotlin {
 }
 
 tasks.withType<Test> {
+    maxHeapSize = "4g"
+    forkEvery = 1
+    maxParallelForks = Runtime.getRuntime().availableProcessors()
     useJUnitPlatform() // Enable JUnit 5
 }
 
