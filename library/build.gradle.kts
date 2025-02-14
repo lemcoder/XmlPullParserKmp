@@ -25,6 +25,7 @@ kotlin {
             dependencies {
                 implementation(libs.fleeksoft.io.core)
                 implementation(libs.fleeksoft.io.io)
+                implementation(libs.fleeksoft.io.charset.ext)
             }
         }
         val commonTest by getting {

@@ -170,7 +170,6 @@ internal class XmlStreamReaderTestCommon {
      */
     @Test
     @Throws(IOException::class)
-    @Ignore // https://github.com/fleeksoft/fleeksoft-io/issues/5
     fun ebcdicEncoding() {
         checkXmlStreamReader("simple text in EBCDIC", "CP1047")
     }

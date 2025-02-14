@@ -9,6 +9,7 @@ android-compileSdk = "34"
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 fleeksoft-io-core = { module = "com.fleeksoft.io:io-core", version.ref = "fleeksoft-io" }
 fleeksoft-io-io = { module = "com.fleeksoft.io:io", version.ref = "fleeksoft-io" }
+fleeksoft-io-charset-ext = { module = "com.fleeksoft.charset:charset-ext", version.ref = "fleeksoft-io" }
 
 [plugins]
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
