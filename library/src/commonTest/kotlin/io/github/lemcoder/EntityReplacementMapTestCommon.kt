@@ -1,9 +1,9 @@
 package io.github.lemcoder
 
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
-class EntityReplacementMapTest {
+class EntityReplacementMapTestCommon {
 
     @Test
     fun `test entity replacement map initialization`() {

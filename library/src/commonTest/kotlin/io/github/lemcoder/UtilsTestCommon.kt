@@ -1,17 +1,17 @@
 package io.github.lemcoder
 
 import io.github.lemcoder.utils.arraycopy
-import org.junit.jupiter.api.Assertions.assertArrayEquals
-import org.junit.jupiter.api.Test
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
 
-class UtilsTest {
+class UtilsTestCommon {
 
     @Test
     fun `test arraycopy with valid input`() {
         val src = arrayOf(1, 2, 3, 4, 5)
         val dest = arrayOf(0, 0, 0, 0, 0)
         arraycopy(src, 1, dest, 2, 3)
-        assertArrayEquals(arrayOf(0, 0, 2, 3, 4), dest)
+        assertContentEquals(arrayOf(0, 0, 2, 3, 4), dest)
     }
 
     @Test
@@ -19,7 +19,7 @@ class UtilsTest {
         val src = arrayOf(1, 2, 3, 4, 5)
         val dest = arrayOf(1, 2, 3, 4, 5)
         arraycopy(src, 1, dest, 2, 3)
-        assertArrayEquals(arrayOf(1, 2, 2, 3, 4), dest)
+        assertContentEquals(arrayOf(1, 2, 2, 3, 4), dest)
     }
 
     @Test
@@ -27,7 +27,7 @@ class UtilsTest {
         val src = arrayOf(1, 2, 3, 4, 5)
         val dest = arrayOf(0, 0, 0, 0, 0)
         arraycopy(src, 1, dest, 2, 0)
-        assertArrayEquals(arrayOf(0, 0, 0, 0, 0), dest)
+        assertContentEquals(arrayOf(0, 0, 0, 0, 0), dest)
     }
 
     @Test
@@ -35,7 +35,7 @@ class UtilsTest {
         val src = arrayOf(1, 2, 3, 4, 5)
         val dest = arrayOf(0, 0, 0, 0, 0)
         arraycopy(src, 0, dest, 0, 5)
-        assertArrayEquals(arrayOf(1, 2, 3, 4, 5), dest)
+        assertContentEquals(arrayOf(1, 2, 3, 4, 5), dest)
     }
 
     @Test
@@ -43,6 +43,6 @@ class UtilsTest {
         val src = arrayOf("a", "b", "c", "d", "e")
         val dest = arrayOf("", "", "", "", "")
         arraycopy(src, 1, dest, 2, 3)
-        assertArrayEquals(arrayOf("", "", "b", "c", "d"), dest)
+        assertContentEquals(arrayOf("", "", "b", "c", "d"), dest)
     }
 }

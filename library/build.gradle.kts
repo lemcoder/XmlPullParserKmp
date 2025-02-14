@@ -15,7 +15,10 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-    // linuxX64()
+    mingwX64()
+    macosX64()
+    macosArm64()
+    linuxX64()
 
     sourceSets {
         val commonMain by getting {
@@ -27,6 +30,7 @@ kotlin {
         val commonTest by getting {
             dependencies {
                 implementation(libs.kotlin.test)
+                implementation("com.goncalossilva:resources:0.10.0")
             }
         }
 
@@ -42,10 +46,13 @@ kotlin {
 }
 
 tasks.withType<Test> {
-    maxHeapSize = "4g"
-    forkEvery = 1
-    maxParallelForks = Runtime.getRuntime().availableProcessors()
-    useJUnitPlatform() // Enable JUnit 5
+    // check if target is jvm
+    if (name.contains("jvm")) {
+        maxHeapSize = "4g"
+        forkEvery = 1
+        maxParallelForks = Runtime.getRuntime().availableProcessors()
+        useJUnitPlatform() // Enable JUnit 5
+    }
 }
 
 

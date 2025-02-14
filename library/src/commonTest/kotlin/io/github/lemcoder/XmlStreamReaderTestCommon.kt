@@ -1,7 +1,4 @@
-package io.github.lemcoder
-
-
-/*
+package io.github.lemcoder/*
 * Copyright The Codehaus Foundation.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,27 +13,29 @@ package io.github.lemcoder
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-import io.github.lemcoder.TestUtils.readAllFrom
+import com.fleeksoft.charset.*
+import com.fleeksoft.io.BufferedInputStream
+import com.fleeksoft.io.ByteArrayInputStream
+import com.fleeksoft.io.InputStream
+import com.fleeksoft.io.exception.IOException
+import io.github.lemcoder.TestUtilsCommon.readAllFrom
 import io.github.lemcoder.reader.XmlStreamReader
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.api.Test
-import org.opentest4j.AssertionFailedError
-import java.io.ByteArrayInputStream
-import java.io.IOException
-import java.io.InputStream
-import java.io.SequenceInputStream
+import io.github.lemcoder.utils.CombinedInputStream
+import kotlin.test.Ignore
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFails
 
 
 /**
  *
- * XmlStreamReaderTest class.
+ * io.github.lemcoder.XmlStreamReaderTest class.
  *
  * @author herve
  * @version $Id: $Id
  * @since 3.4.0
  */
-internal class XmlStreamReaderTest {
+internal class XmlStreamReaderTestCommon {
     /**
      *
      * testNoXmlHeader.
@@ -171,6 +170,7 @@ internal class XmlStreamReaderTest {
      */
     @Test
     @Throws(IOException::class)
+    @Ignore // https://github.com/fleeksoft/fleeksoft-io/issues/5
     fun ebcdicEncoding() {
         checkXmlStreamReader("simple text in EBCDIC", "CP1047")
     }
@@ -183,11 +183,9 @@ internal class XmlStreamReaderTest {
     @Test
     fun inappropriateEncoding() {
         // expected failure, since the encoding does not contain some characters
-        assertThrows(
-            AssertionFailedError::class.java,
-            { checkXmlStreamReader(TEXT_UNICODE, "ISO-8859-2") },
-            "Check should have failed, since some characters are not available in the specified encoding"
-        )
+        assertFails(message = "Check should have failed, since some characters are not available in the specified encoding") {
+            checkXmlStreamReader(TEXT_UNICODE, "ISO-8859-2")
+        }
     }
 
     /**
@@ -260,13 +258,14 @@ internal class XmlStreamReaderTest {
 
         @Throws(IOException::class)
         private fun checkXmlContent(xml: String, encoding: String, vararg bom: Byte?) {
-            val xmlContent = xml.toByteArray(charset(encoding))
+            val xmlContent = xml.toByteArray(Charsets.forName(encoding))
             var inputStream: InputStream = ByteArrayInputStream(xmlContent)
 
             if (!bom.any { it == null }) {
-                inputStream = SequenceInputStream(ByteArrayInputStream(bom.mapNotNull { it }.toByteArray()), inputStream)
+                val bomBytes = bom.filterNotNull().toByteArray()
+                val combinedStream = CombinedInputStream(ByteArrayInputStream(bomBytes), inputStream)
+                inputStream = BufferedInputStream(combinedStream)
             }
-
             val reader = XmlStreamReader(inputStream, false)
             // assertEquals(encoding, reader.encoding)
             assertEquals(xml, readAllFrom(reader))

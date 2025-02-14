@@ -1,15 +1,18 @@
 package io.github.lemcoder
 
-object TestUtils {
-    @Throws(java.io.IOException::class)
-    fun readAllFrom(input: java.io.Reader): String {
-        val output: java.io.StringWriter = java.io.StringWriter()
+import com.fleeksoft.io.Reader
+import com.fleeksoft.io.exception.IOException
+
+object TestUtilsCommon {
+    @Throws(IOException::class)
+    fun readAllFrom(input: Reader): String {
+        val output: StringBuilder = StringBuilder()
         val buffer = CharArray(16384)
         var n = 0
         while (0 <= (input.read(buffer).also { n = it })) {
-            output.write(buffer, 0, n)
+            output.appendRange(buffer, 0, 0 + n)
         }
-        output.flush()
+//        output.flush()
         return output.toString()
     }
 
